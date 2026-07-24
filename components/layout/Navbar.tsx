@@ -1,13 +1,13 @@
 export default function Navbar() {
   return (
-    <header className="h-16 bg-white border-b border-zinc-200 flex items-center justify-between px-8">
+    <header className="flex h-16 items-center justify-between border-b border-zinc-800 bg-black px-8 text-zinc-50">
       <div>
-        <h1 className="text-2xl font-bold text-zinc-800">
+        <h1 className="text-2xl font-bold text-zinc-50">
           ATLAS ERP
         </h1>
 
         <p className="text-sm text-zinc-500">
-          ITLATAM GROUP SAS
+          ITLATAM GROUP S.A.S.
         </p>
       </div>
 
