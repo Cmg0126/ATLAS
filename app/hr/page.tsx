@@ -1,4 +1,5 @@
 import AppShell from "@/components/layout/AppShell";
+import Link from "next/link";
 import { dbSelect } from "@/lib/supabase-rest";
 import {
   createEmployee, createLeaveRequest, createSubcontractor, createSubcontractorContract,
@@ -23,7 +24,7 @@ export default async function HrPage(){
   dbSelect<Contract>("subcontractor_contracts",{select:"id,contract_number,scope,start_date,end_date,contract_value,status,subcontractors(name),projects(name)",order:"created_at.desc"}),
  ]);
  return <AppShell>
-  <PageTitle domain="Talento humano" title="Recursos Humanos" description="Empleados directos, contratos, ausencias y subcontratistas."/>
+  <div className="flex items-start justify-between gap-4"><PageTitle domain="Talento humano" title="Recursos Humanos" description="Empleados directos, contratos, ausencias y subcontratistas."/><Link href="/hr/payroll" className={primary}>Centro de liquidaciones</Link></div>
   <div className="mt-7 grid gap-4 md:grid-cols-4">
    <Metric label="Empleados activos" value={String(employees.filter(x=>x.status==="ACTIVE").length)}/>
    <Metric label="En nómina" value={String(employees.filter(x=>x.status==="ACTIVE"&&x.contract_type==="PAYROLL").length)}/>

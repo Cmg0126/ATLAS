@@ -175,6 +175,56 @@ export async function updateSubcontractorContract(data: FormData) {
   refresh("/hr");
 }
 
+export async function createEmployeePaymentItem(data: FormData) {
+  await dbInsert("employee_payment_items", {
+    employee_id: required(data, "employee_id", "El empleado"),
+    code: required(data, "code", "El código"),
+    name: required(data, "name", "El concepto"),
+    base_amount: number(text(data, "base_amount")),
+    rate: number(text(data, "rate")),
+    calculation_type: text(data, "calculation_type") || "PERCENTAGE",
+    fixed_amount: number(text(data, "fixed_amount")),
+    payment_method: text(data, "payment_method") || "BANK_TRANSFER",
+    beneficiary: nullable(text(data, "beneficiary")),
+    is_enabled: true,
+  });
+  refresh("/hr/payroll");
+}
+
+export async function liquidateEmployeePaymentItem(data: FormData) {
+  const itemId = required(data, "payment_item_id", "El concepto");
+  const [item] = await dbSelect<{employee_id:string;base_amount:number;rate:number;calculation_type:string;fixed_amount:number;payment_method:string;name:string;employees:{company_id:string}|null}>("employee_payment_items", {
+    select: "employee_id,base_amount,rate,calculation_type,fixed_amount,payment_method,name,employees(company_id)",
+    id: `eq.${itemId}`,
+  });
+  if (!item?.employees) throw new Error("El concepto no existe.");
+  const amount = item.calculation_type === "FIXED" ? Number(item.fixed_amount) : Number(item.base_amount) * Number(item.rate) / 100;
+  await dbInsert("employee_payments", {
+    company_id: item.employees.company_id, employee_id: item.employee_id, payment_item_id: itemId,
+    payment_type: item.name, period_start: nullable(text(data, "period_start")), period_end: nullable(text(data, "period_end")),
+    base_amount: item.base_amount, rate: item.rate, amount, payment_method: item.payment_method,
+    status: text(data, "status") || "PENDING", paid_at: text(data, "status") === "PAID" ? new Date().toISOString() : null,
+    reference: nullable(text(data, "reference")),
+  });
+  refresh("/hr/payroll");
+}
+
+export async function liquidatePayrollEmployee(data: FormData) {
+  const employeeId = required(data, "employee_id", "El empleado");
+  const [employee] = await dbSelect<{company_id:string;contract_type:string;base_salary:number}>("employees", {select:"company_id,contract_type,base_salary",id:`eq.${employeeId}`});
+  if (!employee || employee.contract_type !== "PAYROLL") throw new Error("El empleado no pertenece a nómina.");
+  const salary = number(text(data, "base_salary")) || Number(employee.base_salary);
+  await dbUpdate("employees", {id:`eq.${employeeId}`}, {base_salary:salary,updated_at:new Date().toISOString()});
+  await dbInsert("employee_payments", {
+    company_id:employee.company_id,employee_id:employeeId,payment_item_id:null,payment_type:"NÓMINA",
+    period_start:required(data,"period_start","El inicio"),period_end:required(data,"period_end","El final"),
+    base_amount:salary,rate:100,amount:salary,payment_method:text(data,"payment_method")||"BANK_TRANSFER",
+    status:text(data,"status")||"PENDING",paid_at:text(data,"status")==="PAID"?new Date().toISOString():null,
+    reference:nullable(text(data,"reference")),
+  });
+  refresh("/hr/payroll");
+}
+
 export async function createSstIncident(data: FormData) {
   await dbInsert("sst_incidents", {
     company_id: required(data, "company_id", "La empresa"), employee_id: nullable(text(data, "employee_id")),
