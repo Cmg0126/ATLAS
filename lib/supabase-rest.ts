@@ -51,6 +51,18 @@ export async function dbInsert<T>(table: string, payload: unknown): Promise<T> {
   return rows[0];
 }
 
+export async function dbUpsert<T>(table: string, payload: unknown, onConflict: string): Promise<T[]> {
+  const { url } = await getConfig();
+  const search = new URLSearchParams({ on_conflict: onConflict });
+  const response = await fetch(`${url}/rest/v1/${table}?${search.toString()}`, {
+    method: "POST",
+    headers: await getHeaders("resolution=merge-duplicates,return=representation"),
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw new Error(`Supabase UPSERT ${table}: ${await response.text()}`);
+  return response.json() as Promise<T[]>;
+}
+
 export async function dbUpdate(table: string, filters: Record<string, QueryValue>, payload: unknown): Promise<void> {
   const { url } = await getConfig();
   const search = new URLSearchParams();

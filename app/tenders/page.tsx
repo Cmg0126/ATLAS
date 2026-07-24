@@ -1,4 +1,5 @@
 import AppShell from "@/components/layout/AppShell";
+import Link from "next/link";
 import { dbSelect } from "@/lib/supabase-rest";
 import { createTender, createTenderRequirement, updateTender } from "../domain-actions";
 import { Empty, Field, input, Metric, PageTitle, primary, Section } from "../domain-ui";
@@ -14,7 +15,7 @@ export default async function TendersPage(){
   dbSelect<Requirement>("tender_requirements",{select:"id,tender_id,title,responsible,due_date,status",order:"created_at.desc"})
  ]);
  const open=tenders.filter(t=>!["WON","LOST","CANCELLED"].includes(t.status));
- return <AppShell><PageTitle domain="Contratación" title="Licitaciones" description="Registro, fechas críticas y control de requisitos."/>
+ return <AppShell><div className="flex flex-wrap items-start justify-between gap-4"><PageTitle domain="Contratación" title="Licitaciones" description="Registro, fechas críticas y control de requisitos."/><Link href="/tenders/secop" className={primary}>Radar SECOP II</Link></div>
   <div className="mt-7 grid gap-4 md:grid-cols-3"><Metric label="Abiertas" value={String(open.length)}/><Metric label="Valor en proceso" value={money.format(open.reduce((s,t)=>s+Number(t.estimated_value||0),0))}/><Metric label="Requisitos pendientes" value={String(requirements.filter(r=>r.status!=="DONE").length)}/></div>
   <div className="mt-7 grid gap-6 xl:grid-cols-2"><Section title="Nueva licitación"><form action={createTender} className="mt-5 grid gap-4 md:grid-cols-2">
    <Field label="Empresa"><select name="company_id" required className={input}><option value="">Seleccionar</option>{companies.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
