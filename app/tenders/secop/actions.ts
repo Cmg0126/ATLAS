@@ -39,10 +39,18 @@ function scoreRow(row: SecopRow, profile: SecopProfile) {
   const haystack = normalize(`${row.nombre_del_procedimiento ?? ""} ${row.descripci_n_del_procedimiento ?? ""}`);
   const excluded = profile.excluded_keywords.filter((keyword) => haystack.includes(normalize(keyword)));
   if (excluded.length) return { score: 0, reasons: [`Excluida por: ${excluded.join(", ")}`] };
+  if (profile.required_keywords.length && !profile.required_keywords.every((keyword) => haystack.includes(normalize(keyword)))) {
+    return { score: 0, reasons: [] };
+  }
+  const entity = normalize(row.entidad ?? "");
+  if (profile.excluded_entities.some((name) => entity.includes(normalize(name)))) return { score: 0, reasons: [] };
+  if (profile.modalities.length && !profile.modalities.some((modality) => normalize(row.modalidad_de_contratacion ?? "").includes(normalize(modality)))) {
+    return { score: 0, reasons: [] };
+  }
 
   let score = 0;
   const reasons: string[] = [];
-  const keywordMatches = profile.keywords.filter((keyword) => haystack.includes(normalize(keyword)));
+  const keywordMatches = [...profile.keywords, ...profile.sectors].filter((keyword) => haystack.includes(normalize(keyword)));
   if (keywordMatches.length) {
     score += Math.min(45, keywordMatches.length * 9);
     reasons.push(`Coincide: ${keywordMatches.slice(0, 5).join(", ")}`);
@@ -53,10 +61,13 @@ function scoreRow(row: SecopRow, profile: SecopProfile) {
   if (unspscMatch) { score += 25; reasons.push(`UNSPSC ${row.codigo_principal_de_categoria}`); }
   if (!keywordMatches.length && !unspscMatch) return { score: 0, reasons: [] };
 
-  if (!profile.departments.length || profile.departments.some((department) => normalize(department) === normalize(row.departamento_entidad ?? ""))) {
+  const departmentMatch = profile.departments.some((department) => normalize(department) === normalize(row.departamento_entidad ?? ""));
+  const municipalityMatch = profile.municipalities.some((municipality) => normalize(municipality) === normalize(row.ciudad_entidad ?? ""));
+  if ((!profile.departments.length && !profile.municipalities.length) || departmentMatch || municipalityMatch) {
     score += 10;
-    reasons.push(profile.departments.length ? `Cobertura: ${row.departamento_entidad}` : "Cobertura nacional");
-  }
+    reasons.push(profile.departments.length || profile.municipalities.length ? `Cobertura: ${row.departamento_entidad} / ${row.ciudad_entidad}` : "Cobertura nacional");
+  } else return { score: 0, reasons: [] };
+  if (profile.preferred_entities.some((name) => entity.includes(normalize(name)))) { score += 5; reasons.push("Entidad preferida"); }
 
   const price = Number(row.precio_base ?? 0);
   const inRange = price >= Number(profile.min_value) && (!Number(profile.max_value) || price <= Number(profile.max_value));
@@ -76,8 +87,14 @@ export async function saveSecopProfile(data: FormData) {
     company_id: companyId,
     keywords: list(text(data, "keywords")),
     excluded_keywords: list(text(data, "excluded_keywords")),
+    required_keywords: list(text(data, "required_keywords")),
+    sectors: list(text(data, "sectors")),
     unspsc_codes: list(text(data, "unspsc_codes")),
     departments: list(text(data, "departments")),
+    municipalities: list(text(data, "municipalities")),
+    modalities: list(text(data, "modalities")),
+    preferred_entities: list(text(data, "preferred_entities")),
+    excluded_entities: list(text(data, "excluded_entities")),
     min_value: numeric(text(data, "min_value")),
     max_value: numeric(text(data, "max_value")),
     minimum_days: numeric(text(data, "minimum_days")) || 3,
