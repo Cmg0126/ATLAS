@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { dbInsert, dbSelect, dbUpdate } from "@/lib/supabase-rest";
+import { dbDelete, dbInsert, dbSelect, dbUpdate } from "@/lib/supabase-rest";
 
 const text = (formData: FormData, key: string) => String(formData.get(key) ?? "").trim();
 const nullable = (value: string) => (value ? value : null);
@@ -107,8 +107,66 @@ export async function createQuotation(formData: FormData) {
   await dbInsert("quotations", {
     opportunity_id: opportunityId,
     quotation_number: required(formData, "quotation_number", "El número"),
-    total: amount(text(formData, "total")), status: text(formData, "status") || "DRAFT",
+    subtotal: 0, discount_total: 0, tax_total: 0, total: 0,
+    validity_date: nullable(text(formData, "validity_date")),
+    notes: nullable(text(formData, "notes")),
+    status: text(formData, "status") || "DRAFT",
   });
+  revalidatePath("/commercial");
+  revalidatePath("/commercial/quotations");
+  revalidatePath(`/commercial/opportunities/${opportunityId}`);
+}
+
+type QuotationItemAmount = {
+  quantity: number;
+  unit_price: number;
+  discount_percent: number;
+  tax_percent: number;
+};
+
+async function recalculateQuotation(quotationId: string) {
+  const items = await dbSelect<QuotationItemAmount>("quotation_items", {
+    select: "quantity,unit_price,discount_percent,tax_percent",
+    quotation_id: `eq.${quotationId}`,
+  });
+  const totals = items.reduce((result, item) => {
+    const gross = Number(item.quantity) * Number(item.unit_price);
+    const discount = gross * Number(item.discount_percent) / 100;
+    const taxable = gross - discount;
+    const tax = taxable * Number(item.tax_percent) / 100;
+    result.subtotal += gross;
+    result.discount_total += discount;
+    result.tax_total += tax;
+    result.total += taxable + tax;
+    return result;
+  }, { subtotal: 0, discount_total: 0, tax_total: 0, total: 0 });
+  await dbUpdate("quotations", { id: `eq.${quotationId}` }, totals);
+}
+
+export async function createQuotationItem(formData: FormData) {
+  const quotationId = required(formData, "quotation_id", "La cotización");
+  const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  await dbInsert("quotation_items", {
+    quotation_id: quotationId,
+    description: required(formData, "description", "La descripción"),
+    unit: text(formData, "unit") || "UND",
+    quantity: amount(required(formData, "quantity", "La cantidad")),
+    unit_price: amount(required(formData, "unit_price", "El precio unitario")),
+    discount_percent: amount(text(formData, "discount_percent")),
+    tax_percent: amount(text(formData, "tax_percent")),
+  });
+  await recalculateQuotation(quotationId);
+  revalidatePath("/commercial");
+  revalidatePath("/commercial/quotations");
+  revalidatePath(`/commercial/opportunities/${opportunityId}`);
+}
+
+export async function deleteQuotationItem(formData: FormData) {
+  const itemId = required(formData, "item_id", "El ítem");
+  const quotationId = required(formData, "quotation_id", "La cotización");
+  const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  await dbDelete("quotation_items", { id: `eq.${itemId}`, quotation_id: `eq.${quotationId}` });
+  await recalculateQuotation(quotationId);
   revalidatePath("/commercial");
   revalidatePath("/commercial/quotations");
   revalidatePath(`/commercial/opportunities/${opportunityId}`);

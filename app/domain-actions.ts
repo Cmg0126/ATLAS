@@ -62,6 +62,7 @@ export async function createPurchaseOrderItem(data: FormData) {
   const orderId = required(data, "purchase_order_id", "La orden");
   await dbInsert("purchase_order_items", {
     purchase_order_id: orderId, description: required(data, "description", "La descripción"),
+    inventory_item_id: nullable(text(data, "inventory_item_id")),
     quantity: number(text(data, "quantity")) || 1, unit_cost: number(text(data, "unit_cost")),
   });
   const items = await dbSelect<{ quantity: number; unit_cost: number }>("purchase_order_items", { select: "quantity,unit_cost", purchase_order_id: `eq.${orderId}` });
@@ -70,6 +71,54 @@ export async function createPurchaseOrderItem(data: FormData) {
     updated_at: new Date().toISOString(),
   });
   refresh("/purchasing");
+}
+
+export async function receivePurchaseOrderItem(data: FormData) {
+  const orderId = required(data, "purchase_order_id", "La orden");
+  const orderItemId = required(data, "purchase_order_item_id", "La partida");
+  const receiveQuantity = number(required(data, "receive_quantity", "La cantidad recibida"));
+  if (receiveQuantity <= 0) throw new Error("La cantidad recibida debe ser mayor que cero.");
+
+  const [order] = await dbSelect<{ company_id: string; order_number: string; project_id: string | null; status: string }>("purchase_orders", {
+    select: "company_id,order_number,project_id,status", id: `eq.${orderId}`,
+  });
+  if (!order || order.status === "CANCELLED") throw new Error("La orden no está disponible para recepción.");
+  const [orderItem] = await dbSelect<{ inventory_item_id: string | null; quantity: number; received_quantity: number; unit_cost: number }>("purchase_order_items", {
+    select: "inventory_item_id,quantity,received_quantity,unit_cost", id: `eq.${orderItemId}`, purchase_order_id: `eq.${orderId}`,
+  });
+  if (!orderItem?.inventory_item_id) throw new Error("La partida debe estar vinculada a un artículo de inventario.");
+  const pending = Number(orderItem.quantity) - Number(orderItem.received_quantity);
+  if (receiveQuantity > pending) throw new Error(`Solo quedan ${pending} unidades pendientes.`);
+
+  const [inventoryItem] = await dbSelect<{ current_stock: number }>("inventory_items", {
+    select: "current_stock", id: `eq.${orderItem.inventory_item_id}`,
+  });
+  if (!inventoryItem) throw new Error("El artículo de inventario no existe.");
+
+  await dbInsert("inventory_movements", {
+    company_id: order.company_id, item_id: orderItem.inventory_item_id, project_id: order.project_id,
+    movement_type: "IN", quantity: receiveQuantity, reference: `OC ${order.order_number}`,
+    notes: "Recepción de orden de compra",
+  });
+  await dbUpdate("inventory_items", { id: `eq.${orderItem.inventory_item_id}` }, {
+    current_stock: Number(inventoryItem.current_stock) + receiveQuantity,
+    unit_cost: Number(orderItem.unit_cost),
+    updated_at: new Date().toISOString(),
+  });
+  await dbUpdate("purchase_order_items", { id: `eq.${orderItemId}` }, {
+    received_quantity: Number(orderItem.received_quantity) + receiveQuantity,
+  });
+
+  const items = await dbSelect<{ quantity: number; received_quantity: number }>("purchase_order_items", {
+    select: "quantity,received_quantity", purchase_order_id: `eq.${orderId}`,
+  });
+  const received = items.reduce((sum, item) => sum + Number(item.received_quantity), 0);
+  const ordered = items.reduce((sum, item) => sum + Number(item.quantity), 0);
+  await dbUpdate("purchase_orders", { id: `eq.${orderId}` }, {
+    status: received >= ordered ? "RECEIVED" : "PARTIAL",
+    updated_at: new Date().toISOString(),
+  });
+  refresh("/purchasing", "/inventory");
 }
 
 export async function createInventoryItem(data: FormData) {
@@ -199,14 +248,20 @@ export async function liquidateEmployeePaymentItem(data: FormData) {
   });
   if (!item?.employees) throw new Error("El concepto no existe.");
   const amount = item.calculation_type === "FIXED" ? Number(item.fixed_amount) : Number(item.base_amount) * Number(item.rate) / 100;
-  await dbInsert("employee_payments", {
+  const status = text(data, "status") || "PENDING";
+  const payment = await dbInsert<{id:string}>("employee_payments", {
     company_id: item.employees.company_id, employee_id: item.employee_id, payment_item_id: itemId,
     payment_type: item.name, period_start: nullable(text(data, "period_start")), period_end: nullable(text(data, "period_end")),
     base_amount: item.base_amount, rate: item.rate, amount, payment_method: item.payment_method,
-    status: text(data, "status") || "PENDING", paid_at: text(data, "status") === "PAID" ? new Date().toISOString() : null,
+    status, paid_at: status === "PAID" ? new Date().toISOString() : null,
     reference: nullable(text(data, "reference")),
   });
-  refresh("/hr/payroll");
+  if (status === "PAID") await dbInsert("finance_transactions", {
+    company_id: item.employees.company_id, employee_payment_id: payment.id, transaction_type: "EXPENSE",
+    category: "PERSONAL", description: `Pago ${item.name}`, amount,
+    transaction_date: new Date().toISOString().slice(0, 10), status: "POSTED",
+  });
+  refresh("/hr/payroll", "/finance");
 }
 
 export async function liquidatePayrollEmployee(data: FormData) {
@@ -214,15 +269,21 @@ export async function liquidatePayrollEmployee(data: FormData) {
   const [employee] = await dbSelect<{company_id:string;contract_type:string;base_salary:number}>("employees", {select:"company_id,contract_type,base_salary",id:`eq.${employeeId}`});
   if (!employee || employee.contract_type !== "PAYROLL") throw new Error("El empleado no pertenece a nómina.");
   const salary = number(text(data, "base_salary")) || Number(employee.base_salary);
+  const status = text(data, "status") || "PENDING";
   await dbUpdate("employees", {id:`eq.${employeeId}`}, {base_salary:salary,updated_at:new Date().toISOString()});
-  await dbInsert("employee_payments", {
+  const payment = await dbInsert<{id:string}>("employee_payments", {
     company_id:employee.company_id,employee_id:employeeId,payment_item_id:null,payment_type:"NÓMINA",
     period_start:required(data,"period_start","El inicio"),period_end:required(data,"period_end","El final"),
     base_amount:salary,rate:100,amount:salary,payment_method:text(data,"payment_method")||"BANK_TRANSFER",
-    status:text(data,"status")||"PENDING",paid_at:text(data,"status")==="PAID"?new Date().toISOString():null,
+    status,paid_at:status==="PAID"?new Date().toISOString():null,
     reference:nullable(text(data,"reference")),
   });
-  refresh("/hr/payroll");
+  if (status === "PAID") await dbInsert("finance_transactions", {
+    company_id: employee.company_id, employee_payment_id: payment.id, transaction_type: "EXPENSE",
+    category: "NÓMINA", description: "Pago de nómina", amount: salary,
+    transaction_date: new Date().toISOString().slice(0, 10), status: "POSTED",
+  });
+  refresh("/hr/payroll", "/finance");
 }
 
 export async function createSstIncident(data: FormData) {
@@ -263,9 +324,26 @@ export async function createInvoice(data: FormData) {
   refresh("/finance");
 }
 export async function updateInvoice(data: FormData) {
-  await dbUpdate("invoices", { id: `eq.${required(data, "invoice_id", "La factura")}` }, {
-    status: required(data, "status", "El estado"), paid_amount: number(text(data, "paid_amount")),
+  const invoiceId = required(data, "invoice_id", "La factura");
+  const [invoice] = await dbSelect<{company_id:string;project_id:string|null;invoice_number:string;invoice_type:string;paid_amount:number;total:number}>("invoices", {
+    select: "company_id,project_id,invoice_number,invoice_type,paid_amount,total", id: `eq.${invoiceId}`,
+  });
+  if (!invoice) throw new Error("La factura no existe.");
+  const paidAmount = number(text(data, "paid_amount"));
+  if (paidAmount < 0 || paidAmount > Number(invoice.total)) throw new Error("El valor pagado debe estar entre cero y el total.");
+  const delta = paidAmount - Number(invoice.paid_amount);
+  const requestedStatus = required(data, "status", "El estado");
+  const status = requestedStatus === "VOID" ? "VOID" : paidAmount >= Number(invoice.total) ? "PAID" : paidAmount > 0 ? "PARTIAL" : requestedStatus;
+  await dbUpdate("invoices", { id: `eq.${invoiceId}` }, {
+    status, paid_amount: paidAmount,
     updated_at: new Date().toISOString(),
+  });
+  if (delta > 0) await dbInsert("finance_transactions", {
+    company_id: invoice.company_id, project_id: invoice.project_id, invoice_id: invoiceId,
+    transaction_type: invoice.invoice_type === "PURCHASE" ? "EXPENSE" : "INCOME",
+    category: invoice.invoice_type === "PURCHASE" ? "CUENTAS POR PAGAR" : "CARTERA",
+    description: `Pago factura ${invoice.invoice_number}`, amount: delta,
+    transaction_date: new Date().toISOString().slice(0, 10), status: "POSTED",
   });
   refresh("/finance");
 }
