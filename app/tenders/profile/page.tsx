@@ -2,7 +2,8 @@ import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import { dbSelect } from "@/lib/supabase-rest";
 import { Empty, Field, input, Metric, PageTitle, primary, Section } from "../../domain-ui";
-import { createRupExperience, deleteRupExperience, saveRupProfile } from "./actions";
+import { createRupExperience, deleteRupExperience } from "./actions";
+import { RupForm } from "./rup-form";
 
 type Company = { id: string; name: string };
 type Rup = {
@@ -68,26 +69,8 @@ export default async function ProcurementProfilePage({ searchParams }: { searchP
       </div>
 
       <Section title="Información financiera del RUP">
-        <p className="mt-2 text-sm text-zinc-500">Ingresa los valores base exactamente como aparecen en el certificado. ATLAS calcula los indicadores.</p>
-        <form action={saveRupProfile} className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <input type="hidden" name="company_id" value={companyId} />
-          <Field label="Fecha de expedición"><input type="date" name="issue_date" defaultValue={values.issue_date || ""} className={input} /></Field>
-          <Field label="Vigente hasta"><input type="date" name="valid_until" defaultValue={values.valid_until || ""} className={input} /></Field>
-          <Field label="Año fiscal"><input type="number" name="fiscal_year" min="2000" max="2100" defaultValue={values.fiscal_year || ""} className={input} /></Field>
-          <Field label="Domicilio"><input name="domicile" defaultValue={values.domicile || ""} className={input} /></Field>
-          <Field label="Activo corriente"><input type="number" step="any" min="0" name="current_assets" defaultValue={values.current_assets} className={input} /></Field>
-          <Field label="Pasivo corriente"><input type="number" step="any" min="0" name="current_liabilities" defaultValue={values.current_liabilities} className={input} /></Field>
-          <Field label="Activo total"><input type="number" step="any" min="0" name="total_assets" defaultValue={values.total_assets} className={input} /></Field>
-          <Field label="Pasivo total"><input type="number" step="any" min="0" name="total_liabilities" defaultValue={values.total_liabilities} className={input} /></Field>
-          <Field label="Patrimonio"><input type="number" step="any" name="equity" defaultValue={values.equity} className={input} /></Field>
-          <Field label="Utilidad operacional"><input type="number" step="any" name="operating_profit" defaultValue={values.operating_profit} className={input} /></Field>
-          <Field label="Gastos de intereses"><input type="number" step="any" min="0" name="interest_expense" defaultValue={values.interest_expense} className={input} /></Field>
-          <Field label="Utilidad neta"><input type="number" step="any" name="net_income" defaultValue={values.net_income} className={input} /></Field>
-          <Field label="Capacidad residual"><input type="number" step="any" min="0" name="residual_capacity" defaultValue={values.residual_capacity} className={input} /></Field>
-          <label className="flex items-center gap-3 rounded-xl border px-4 py-3"><input type="checkbox" name="is_mipyme" defaultChecked={values.is_mipyme} /> Empresa Mipyme</label>
-          <div className="md:col-span-2"><Field label="Notas"><textarea name="notes" defaultValue={values.notes || ""} rows={3} className={input} /></Field></div>
-          <button className={`${primary} md:col-span-2 xl:col-span-4`}>Guardar información RUP</button>
-        </form>
+        <p className="mt-2 text-sm text-zinc-500">Carga el certificado para completar los campos automáticamente o modifícalos manualmente antes de guardar.</p>
+        <RupForm companyId={companyId} values={values} />
       </Section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[420px_1fr]">
