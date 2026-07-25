@@ -115,6 +115,7 @@ export async function createQuotation(formData: FormData) {
   revalidatePath("/commercial");
   revalidatePath("/commercial/quotations");
   revalidatePath(`/commercial/opportunities/${opportunityId}`);
+  redirect(`/commercial/opportunities/${opportunityId}`);
 }
 
 type QuotationItemAmount = {
