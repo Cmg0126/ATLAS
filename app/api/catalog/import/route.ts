@@ -170,6 +170,7 @@ export async function POST(request: Request) {
           systemId: rule.system_id,
           categoryId: rule.category_id,
           subcategoryId: rule.subcategory_id,
+          brand: item.brand || null,
           confidence: Number(rule.confidence),
           status: "AUTOMATIC",
           source: "RULE",
@@ -199,17 +200,18 @@ export async function POST(request: Request) {
         continue;
       }
       const classification = classificationMode === "BLOCK"
-        ? { systemId: selectedSystemId, categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId, confidence: 1, status: "REVIEWED" as const, source: "BLOCK" as const }
-        : classifications.get(item.rowNumber) ?? { systemId: null, categoryId: null, subcategoryId: null, confidence: 0, status: "PENDING" as const, source: "AI" as const };
-      const normalizedKey = normalize([item.brand, item.model, item.name].filter(Boolean).join("|"));
+        ? { systemId: selectedSystemId, categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId, brand: item.brand || null, confidence: 1, status: "REVIEWED" as const, source: "BLOCK" as const }
+        : classifications.get(item.rowNumber) ?? { systemId: null, categoryId: null, subcategoryId: null, brand: item.brand || null, confidence: 0, status: "PENDING" as const, source: "AI" as const };
+      const resolvedBrand = item.brand || classification.brand || "";
+      const normalizedKey = normalize([resolvedBrand, item.model, item.name].filter(Boolean).join("|"));
       const { data: product, error: productError } = await supabase.from("catalog_products").upsert({
         company_id: companyId, normalized_key: normalizedKey, internal_sku: null, name: item.name, description: item.name,
         system_id: classification.systemId, category_id: classification.categoryId, subcategory_id: classification.subcategoryId,
         classification_status: classification.status, classification_confidence: classification.confidence,
         classification_source: classification.source, classified_at: classification.subcategoryId ? new Date().toISOString() : null,
         classified_by: classificationMode === "BLOCK" ? user.id : null,
-        brand: item.brand || null, model: item.model || null, unit: item.unit, tax_percent: item.taxPercent,
-        keywords: [item.sku, item.brand, item.model, item.name].filter(Boolean).join(" "),
+        brand: resolvedBrand || null, model: item.model || null, unit: item.unit, tax_percent: item.taxPercent,
+        keywords: [item.sku, resolvedBrand, item.model, item.name].filter(Boolean).join(" "),
       }, { onConflict: "company_id,normalized_key" }).select("id").single();
       if (productError || !product) {
         errors.push({ row: item.rowNumber, message: productError?.message || "No se creó el producto." });

@@ -37,6 +37,7 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mapping, setMapping] = useState<Mapping | null>(null);
   const [classificationMode, setClassificationMode] = useState<"BLOCK" | "AI">("BLOCK");
+  const [progress, setProgress] = useState({ value: 0, label: "" });
 
   async function requestPreview() {
     if (!formRef.current?.reportValidity()) return;
@@ -63,18 +64,39 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
       return;
     }
     setBusy(true);
+    setProgress({ value: 8, label: "Enviando el archivo al servidor" });
     setMessage("Importando y actualizando precios...");
     const formData = new FormData(formRef.current);
     formData.set("mode", "import");
     formData.set("header_index", String(preview.headerIndex));
     formData.set("mapping", JSON.stringify(mapping));
+    const progressTimer = window.setInterval(() => {
+      setProgress((current) => {
+        const next = current.value < 45
+          ? current.value + 5
+          : current.value < 75
+            ? current.value + 3
+            : Math.min(92, current.value + 1);
+        const label = next < 35
+          ? "Leyendo y validando productos"
+          : next < 70
+            ? classificationMode === "AI"
+              ? "Motor ITLATAM clasificando productos y marcas"
+              : "Aplicando clasificación al bloque"
+            : "Guardando productos y precios";
+        return { value: next, label };
+      });
+    }, 700);
     const response = await fetch("/api/catalog/import", { method: "POST", body: formData });
     const result = await readResponse(response);
+    window.clearInterval(progressTimer);
     setBusy(false);
     if (!response.ok) {
+      setProgress({ value: 0, label: "" });
       setMessage(result.error || "No fue posible importar la lista.");
       return;
     }
+    setProgress({ value: 100, label: "Importación terminada" });
     setMessage(`Importación terminada: ${result.imported} precios, ${result.errors} filas con novedad.`);
     setPreview(null);
     setMapping(null);
@@ -152,6 +174,26 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
             </div>
 
             {message && <p className="mt-4 rounded-xl bg-zinc-900 p-3 text-sm text-zinc-200">{message}</p>}
+            {(busy || progress.value > 0) && (
+              <div className="mt-4 rounded-xl border border-zinc-800 bg-zinc-900 p-4" aria-live="polite">
+                <div className="mb-2 flex items-center justify-between gap-4 text-sm">
+                  <span className="font-medium text-zinc-200">{progress.label}</span>
+                  <span className="font-mono text-yellow-400">{progress.value}%</span>
+                </div>
+                <div
+                  className="h-3 overflow-hidden rounded-full bg-zinc-800"
+                  role="progressbar"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={progress.value}
+                >
+                  <div
+                    className="h-full rounded-full bg-yellow-500 transition-[width] duration-500 ease-out"
+                    style={{ width: `${progress.value}%` }}
+                  />
+                </div>
+              </div>
+            )}
             <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button type="button" onClick={() => { setPreview(null); setMapping(null); setMessage(""); }} className="rounded-xl border border-zinc-700 px-5 py-3 font-semibold text-zinc-200">Cancelar</button>
               <button type="button" disabled={busy || mapping.name < 0 || mapping.price < 0} onClick={confirmImport} className="rounded-xl bg-yellow-500 px-6 py-3 font-semibold text-black disabled:opacity-40">
