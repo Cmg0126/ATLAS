@@ -136,10 +136,24 @@
 }
 
 @layer utilities {
+  .bg-orange-500,
+  .bg-orange-600 { background-color: #ffbd59 !important; }
+  .bg-orange-500.text-white,
+  .bg-orange-600.text-white { color: #09090b !important; }
+  .text-orange-500,
+  .text-orange-600,
+  .text-orange-700 { color: #ffbd59 !important; }
+  .border-orange-300,
+  .border-orange-400,
+  .border-orange-500 { border-color: #ffbd59 !important; }
+  .focus\:border-orange-500:focus { border-color: #ffbd59 !important; }
+  .hover\:border-orange-400:hover { border-color: #ffbd59 !important; }
+  .hover\:text-orange-500:hover { color: #ffbd59 !important; }
   .bg-white { background-color: #09090b !important; }
   .bg-zinc-50 { background-color: #111113 !important; }
   .bg-zinc-100 { background-color: #000 !important; }
-  .bg-orange-50 { background-color: #160d05 !important; }
+  .bg-orange-50,
+  .bg-orange-100 { background-color: #211a0c !important; }
   .text-zinc-800,
   .text-zinc-700,
   .text-zinc-600 { color: #e4e4e7 !important; }
