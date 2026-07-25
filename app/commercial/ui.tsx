@@ -13,6 +13,7 @@ export function CommercialNav() {
     <Link className="rounded-xl border bg-white px-4 py-2 font-semibold" href="/commercial/clients/new">Nuevo cliente</Link>
     <Link className="rounded-xl border bg-white px-4 py-2 font-semibold" href="/commercial/opportunities/new">Nueva oportunidad</Link>
     <Link className="rounded-xl border bg-white px-4 py-2 font-semibold" href="/commercial/quotations">Cotizaciones</Link>
+    <Link className="rounded-xl border bg-white px-4 py-2 font-semibold" href="/commercial/setup">Configurar empresa</Link>
     <Link className="rounded-xl bg-yellow-500 px-4 py-2 font-semibold text-black" href="/commercial/quotations/new">Nueva cotización</Link>
   </div>;
 }
