@@ -57,8 +57,8 @@ export default async function NewQuotationPage({
             </Field>
             <div className="rounded-xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm font-semibold text-zinc-700">Número de cotización</p>
-              <p className="mt-2 text-lg font-bold text-zinc-950">Automático: COT-78-26V1</p>
-              <p className="mt-1 text-xs text-zinc-500">ATLAS asignará el siguiente consecutivo disponible.</p>
+              <p className="mt-2 text-lg font-bold text-zinc-950">Automático: COT-78-261</p>
+              <p className="mt-1 text-xs text-zinc-500">En 2026 inicia en 78; cada año siguiente reinicia en 1.</p>
             </div>
             <Field label="Válida hasta">
               <input type="date" name="validity_date" className={input} />

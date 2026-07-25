@@ -181,6 +181,64 @@ export async function updateQuotationStatus(formData: FormData) {
   revalidatePath(`/commercial/opportunities/${opportunityId}`);
 }
 
+type RevisionSource = {
+  id: string;
+  opportunity_id: string;
+  validity_date: string | null;
+  notes: string | null;
+  subtotal: number;
+  discount_total: number;
+  tax_total: number;
+  total: number;
+};
+
+type RevisionItem = {
+  description: string;
+  unit: string;
+  quantity: number;
+  unit_price: number;
+  discount_percent: number;
+  tax_percent: number;
+};
+
+export async function createQuotationRevision(formData: FormData) {
+  const quotationId = required(formData, "quotation_id", "La cotización");
+  const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  const [source] = await dbSelect<RevisionSource>("quotations", {
+    select: "id,opportunity_id,validity_date,notes,subtotal,discount_total,tax_total,total",
+    id: `eq.${quotationId}`,
+    opportunity_id: `eq.${opportunityId}`,
+  });
+  if (!source) throw new Error("La cotización que deseas revisar no existe.");
+
+  const items = await dbSelect<RevisionItem>("quotation_items", {
+    select: "description,unit,quantity,unit_price,discount_percent,tax_percent",
+    quotation_id: `eq.${quotationId}`,
+  });
+  const revision = await dbInsert<{ id: string }>("quotations", {
+    opportunity_id: source.opportunity_id,
+    revision_of: source.id,
+    validity_date: source.validity_date,
+    notes: source.notes,
+    subtotal: source.subtotal,
+    discount_total: source.discount_total,
+    tax_total: source.tax_total,
+    total: source.total,
+    status: "DRAFT",
+  });
+  if (items.length) {
+    await dbInsert("quotation_items", items.map((item) => ({
+      ...item,
+      quotation_id: revision.id,
+    })));
+  }
+
+  revalidatePath("/commercial");
+  revalidatePath("/commercial/quotations");
+  revalidatePath(`/commercial/opportunities/${opportunityId}`);
+  redirect(`/commercial/opportunities/${opportunityId}`);
+}
+
 type ConversionQuote = {
   id: string; quotation_number: string | null; total: number; status: string;
   opportunity_id: string; opportunities: { client_id: string; title: string } | null;
