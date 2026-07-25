@@ -44,8 +44,8 @@ export default async function ProcurementProfilePage({ searchParams }: { searchP
   const liquidity = ratio(values.current_assets, values.current_liabilities);
   const indebtedness = ratio(values.total_liabilities, values.total_assets);
   const interestCoverage = ratio(values.operating_profit, values.interest_expense);
-  const roe = ratio(values.net_income, values.equity);
-  const roa = ratio(values.net_income, values.total_assets);
+  const roe = ratio(values.operating_profit, values.equity);
+  const roa = ratio(values.operating_profit, values.total_assets);
   const experienceSmmlv = experiences.reduce((sum, item) => sum + Number(item.value_smmlv), 0);
 
   return <AppShell>

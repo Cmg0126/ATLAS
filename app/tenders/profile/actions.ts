@@ -133,8 +133,8 @@ export async function evaluateSecopRequirements(data: FormData) {
   const liquidity = rup && Number(rup.current_liabilities) > 0 ? Number(rup.current_assets) / Number(rup.current_liabilities) : null;
   const indebtedness = rup && Number(rup.total_assets) > 0 ? Number(rup.total_liabilities) / Number(rup.total_assets) : null;
   const interestCoverage = rup && Number(rup.interest_expense) > 0 ? Number(rup.operating_profit) / Number(rup.interest_expense) : null;
-  const roe = rup && Number(rup.equity) > 0 ? Number(rup.net_income) / Number(rup.equity) : null;
-  const roa = rup && Number(rup.total_assets) > 0 ? Number(rup.net_income) / Number(rup.total_assets) : null;
+  const roe = rup && Number(rup.equity) > 0 ? Number(rup.operating_profit) / Number(rup.equity) : null;
+  const roa = rup && Number(rup.total_assets) > 0 ? Number(rup.operating_profit) / Number(rup.total_assets) : null;
   compareMinimum("Liquidez", requirements.required_liquidity, liquidity);
   compareMaximum("Endeudamiento", requirements.max_indebtedness, indebtedness);
   compareMinimum("Cobertura de intereses", requirements.min_interest_coverage, interestCoverage);
