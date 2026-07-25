@@ -5,12 +5,55 @@ import { extractedFieldCount, extractRupFromText } from "@/lib/rup-extractor";
 export const runtime = "nodejs";
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 
-async function loadPdfParser() {
+async function preparePdfRuntime() {
   const canvas = await import("@napi-rs/canvas");
   if (!globalThis.DOMMatrix) globalThis.DOMMatrix = canvas.DOMMatrix as typeof DOMMatrix;
   if (!globalThis.ImageData) globalThis.ImageData = canvas.ImageData as unknown as typeof ImageData;
   if (!globalThis.Path2D) globalThis.Path2D = canvas.Path2D as unknown as typeof Path2D;
-  return import("pdf-parse");
+}
+
+async function extractWithPdfParse(data: Uint8Array) {
+  await preparePdfRuntime();
+  const { PDFParse } = await import("pdf-parse");
+  const parser = new PDFParse({ data });
+  try {
+    return await parser.getText();
+  } finally {
+    await parser.destroy().catch(() => undefined);
+  }
+}
+
+async function extractTextByPage(data: Uint8Array) {
+  await preparePdfRuntime();
+  const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+  const loadingTask = pdfjs.getDocument({
+    data,
+    disableFontFace: true,
+    useSystemFonts: true,
+  });
+  const document = await loadingTask.promise;
+
+  try {
+    const pages: string[] = [];
+    for (let pageNumber = 1; pageNumber <= document.numPages; pageNumber += 1) {
+      const page = await document.getPage(pageNumber);
+      const content = await page.getTextContent();
+      pages.push(content.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" "));
+      page.cleanup();
+    }
+    return { text: pages.join("\n"), total: document.numPages };
+  } finally {
+    await document.destroy();
+  }
+}
+
+function pdfErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return { name: error.name, message: error.message, stack: error.stack };
+  }
+  return { name: "UnknownError", message: String(error) };
 }
 
 export async function POST(request: Request) {
@@ -24,22 +67,56 @@ export async function POST(request: Request) {
   if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
     return NextResponse.json({ error: "El archivo debe ser un PDF." }, { status: 400 });
   }
-  if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "El PDF no puede superar 15 MB." }, { status: 400 });
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: "El PDF no puede superar 15 MB." }, { status: 400 });
+  }
 
-  const { PDFParse } = await loadPdfParser();
-  const parser = new PDFParse({ data: new Uint8Array(await file.arrayBuffer()) });
+  const data = new Uint8Array(await file.arrayBuffer());
+  let result: { text: string; total: number };
+
   try {
-    const result = await parser.getText();
+    result = await extractWithPdfParse(data);
+  } catch (primaryError) {
+    console.warn("[rup:extract] El lector principal falló; usando lectura por páginas.", {
+      fileName: file.name,
+      fileSize: file.size,
+      error: pdfErrorDetails(primaryError),
+    });
+
+    try {
+      result = await extractTextByPage(data.slice());
+    } catch (fallbackError) {
+      console.error("[rup:extract] Los dos lectores PDF fallaron.", {
+        fileName: file.name,
+        fileSize: file.size,
+        primaryError: pdfErrorDetails(primaryError),
+        fallbackError: pdfErrorDetails(fallbackError),
+      });
+      return NextResponse.json({
+        error: "El PDF abre correctamente, pero su estructura interna no es compatible con la lectura automática. Puedes cargar otra copia exportada como PDF o ingresar los datos manualmente.",
+        code: "PDF_STRUCTURE_NOT_SUPPORTED",
+      }, { status: 422 });
+    }
+  }
+
+  try {
     if (result.text.trim().length < 80) {
       return NextResponse.json({
-        error: "El PDF parece ser una imagen escaneada. No contiene texto suficiente para extraer los datos automáticamente.",
+        error: "El PDF contiene principalmente imágenes y no tiene texto seleccionable suficiente. La extracción por OCR todavía no está disponible.",
+        code: "PDF_REQUIRES_OCR",
       }, { status: 422 });
     }
     const values = extractRupFromText(result.text);
     return NextResponse.json({ values, found: extractedFieldCount(values), pages: result.total });
-  } catch {
-    return NextResponse.json({ error: "No fue posible leer el PDF. Verifica que no tenga contraseña ni esté dañado." }, { status: 422 });
-  } finally {
-    await parser.destroy();
+  } catch (error) {
+    console.error("[rup:extract] Falló el análisis del texto extraído.", {
+      fileName: file.name,
+      fileSize: file.size,
+      error: pdfErrorDetails(error),
+    });
+    return NextResponse.json({
+      error: "El PDF fue leído, pero no fue posible interpretar sus datos. Intenta con otra copia del RUP.",
+      code: "RUP_TEXT_NOT_RECOGNIZED",
+    }, { status: 422 });
   }
 }
