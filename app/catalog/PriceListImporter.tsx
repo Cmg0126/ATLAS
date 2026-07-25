@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { TaxonomyFields, type TaxonomySystemOption } from "./TaxonomyFields";
 
 type Option = { id: string; name: string };
-type MappingKey = "sku" | "name" | "brand" | "model" | "unit" | "price" | "tax";
+type MappingKey = "sku" | "name" | "brand" | "model" | "unit" | "price";
 type Mapping = Record<MappingKey, number>;
 type Preview = {
   headerIndex: number;
@@ -20,7 +20,6 @@ const fields: { key: MappingKey; label: string; required?: boolean }[] = [
   { key: "model", label: "Modelo / referencia" },
   { key: "unit", label: "Unidad" },
   { key: "price", label: "Precio", required: true },
-  { key: "tax", label: "IVA %" },
 ];
 
 async function readResponse(response: Response) {
@@ -148,7 +147,7 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
               <div>
                 <p className="text-sm font-semibold uppercase tracking-wider text-yellow-500">Importación de precios</p>
                 <h2 id="mapping-title" className="mt-1 text-2xl font-bold text-white">Emparejar columnas</h2>
-                <p className="mt-2 text-sm text-zinc-400">Confirma qué columna del archivo corresponde a cada campo de ATLAS.</p>
+                <p className="mt-2 text-sm text-zinc-400">Confirma qué columna del archivo corresponde a cada campo de ATLAS. El IVA se toma automáticamente de la configuración empresarial.</p>
               </div>
               <button type="button" onClick={() => { setPreview(null); setMapping(null); setMessage(""); }} className="rounded-lg border border-zinc-700 px-3 py-2 text-zinc-300 hover:bg-zinc-800">Cerrar</button>
             </div>

@@ -75,7 +75,6 @@ export default async function CatalogPage() {
           <Field label="Modelo / referencia"><input name="model" className={input} /></Field>
           <Field label="Unidad"><input name="unit" defaultValue="UND" className={input} /></Field>
           <TaxonomyFields systems={systems} />
-          <Field label="IVA %"><input name="tax_percent" type="number" defaultValue="19" className={input} /></Field>
           <Field label="Tipo"><select name="item_type" className={input}><option value="INSTALLABLE">Equipo instalable</option><option value="CONSUMABLE">Consumible</option><option value="TOOL">Herramienta</option><option value="ASSET">Activo</option></select></Field>
           <Field label="Palabras clave"><input name="keywords" className={input} /></Field>
           <button className="rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black md:col-span-2">Crear producto</button>

@@ -13,7 +13,6 @@ const aliases = {
   model: ["modelo", "referencia fabricante", "modelo referencia"],
   unit: ["unidad", "und", "u.m.", "um"],
   price: ["precio", "precio unitario", "valor", "costo", "precio distribuidor", "precio neto"],
-  tax: ["iva", "impuesto", "iva %"],
 } as const;
 
 const normalize = (value: unknown) =>
@@ -38,16 +37,6 @@ function parseMoney(value: unknown) {
     raw = /\.\d{1,2}$/.test(raw) ? raw.replace(/,/g, "") : raw.replace(/\./g, "");
   }
   return Number(raw);
-}
-
-function parseTaxPercent(value: unknown) {
-  if (value === null || value === undefined || String(value).trim() === "") return 19;
-  const raw = typeof value === "number"
-    ? value
-    : Number(String(value).replace("%", "").replace(",", ".").trim());
-  if (!Number.isFinite(raw) || raw < 0) return 19;
-  const percent = raw > 0 && raw <= 1 ? raw * 100 : raw;
-  return percent <= 100 ? percent : 19;
 }
 
 function csvRows(text: string) {
@@ -88,6 +77,12 @@ export async function POST(request: Request) {
     const file = form.get("file");
     if (!companyId || !supplierId || !(file instanceof File)) return NextResponse.json({ error: "Empresa, proveedor y archivo son obligatorios." }, { status: 400 });
     if (file.size > 15 * 1024 * 1024) return NextResponse.json({ error: "El archivo supera 15 MB." }, { status: 400 });
+    const { data: company, error: companyError } = await supabase.from("companies")
+      .select("default_tax_percent")
+      .eq("id", companyId)
+      .maybeSingle();
+    if (companyError || !company) return NextResponse.json({ error: "No fue posible leer la configuración de la empresa." }, { status: 400 });
+    const companyTaxPercent = Number(company.default_tax_percent ?? 19);
 
     const extension = file.name.toLowerCase().split(".").pop();
     let rows: unknown[][] = [];
@@ -157,7 +152,7 @@ export async function POST(request: Request) {
         brand: String(get("brand") ?? "").trim(),
         model: String(get("model") ?? "").trim(),
         unit: String(get("unit") ?? "").trim() || "UND",
-        taxPercent: parseTaxPercent(get("tax")),
+        taxPercent: companyTaxPercent,
       };
     });
 

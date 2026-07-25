@@ -20,6 +20,10 @@ export async function createCatalogProduct(data: FormData) {
   const brand = value(data, "brand");
   const model = value(data, "model");
   const internalSku = value(data, "internal_sku");
+  const [company] = await dbSelect<{ default_tax_percent: number }>("companies", {
+    select: "default_tax_percent", id: `eq.${companyId}`, limit: 1,
+  });
+  if (!company) throw new Error("La empresa no existe.");
   await dbInsert("catalog_products", {
     company_id: companyId,
     internal_sku: internalSku || null,
@@ -36,7 +40,7 @@ export async function createCatalogProduct(data: FormData) {
     brand: brand || null,
     model: model || null,
     unit: value(data, "unit") || "UND",
-    tax_percent: Number(value(data, "tax_percent") || 19),
+    tax_percent: Number(company.default_tax_percent ?? 19),
     item_type: value(data, "item_type") || "INSTALLABLE",
     keywords: value(data, "keywords") || null,
   });

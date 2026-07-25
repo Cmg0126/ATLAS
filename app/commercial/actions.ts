@@ -20,7 +20,10 @@ export async function createCompany(formData: FormData) {
     name: `eq.${name}`,
     limit: 1,
   });
-  const company = existingCompany ?? await dbInsert<{ id: string }>("companies", { name });
+  const company = existingCompany ?? await dbInsert<{ id: string }>("companies", {
+    name,
+    default_tax_percent: amount(text(formData, "default_tax_percent") || "19"),
+  });
   const branchName = text(formData, "branch_name");
   if (branchName) {
     const [existingBranch] = await dbSelect<{ id: string }>("branches", {
@@ -33,6 +36,19 @@ export async function createCompany(formData: FormData) {
   }
   revalidatePath("/commercial");
   redirect("/commercial/clients/new");
+}
+
+export async function updateCompanySettings(formData: FormData) {
+  const companyId = required(formData, "company_id", "La empresa");
+  const taxPercent = Number(required(formData, "default_tax_percent", "El IVA general"));
+  if (!Number.isFinite(taxPercent) || taxPercent < 0 || taxPercent > 100) {
+    throw new Error("El IVA general debe estar entre 0% y 100%.");
+  }
+  await dbUpdate("companies", { id: `eq.${companyId}` }, {
+    default_tax_percent: taxPercent,
+  });
+  revalidatePath("/commercial/setup");
+  revalidatePath("/catalog");
 }
 
 export async function createClient(formData: FormData) {
