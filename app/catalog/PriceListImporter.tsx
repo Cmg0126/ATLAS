@@ -19,7 +19,10 @@ export function PriceListImporter({ companies, suppliers }: { companies: Option[
           method: "POST",
           body: new FormData(event.currentTarget),
         });
-        const result = await response.json().catch(() => ({ error: "Respuesta inválida del servidor." }));
+        const contentType = response.headers.get("content-type") ?? "";
+        const result = contentType.includes("application/json")
+          ? await response.json()
+          : { error: `El servidor no pudo procesar el archivo (HTTP ${response.status}).` };
         setBusy(false);
         if (!response.ok) {
           setMessage(result.error || "No fue posible importar la lista.");

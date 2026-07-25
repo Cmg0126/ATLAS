@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import readXlsxFile from "read-excel-file/node";
+import { readSheet } from "read-excel-file/node";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -62,6 +62,10 @@ function csvRows(text: string) {
 }
 
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  const requestId = request.headers.get("x-vercel-id");
+  console.log(JSON.stringify({ level: "info", message: "catalog_import_started", requestId }));
+  try {
   const supabase = await createSupabaseServerClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
   if (extension === "csv") {
     rows = csvRows(await file.text());
   } else if (extension === "xlsx") {
-    rows = await readXlsxFile(Buffer.from(await file.arrayBuffer())) as unknown as unknown[][];
+    rows = await readSheet(Buffer.from(await file.arrayBuffer())) as unknown[][];
   } else {
     return NextResponse.json({ error: "Formato no compatible. Usa .xlsx o .csv." }, { status: 400 });
   }
@@ -137,5 +141,27 @@ export async function POST(request: Request) {
     status: errors.length === dataRows.length ? "FAILED" : "COMPLETED",
     imported_rows: imported, error_rows: errors.length, errors: errors.slice(0, 100),
   }).eq("id", importRecord.id);
+  console.log(JSON.stringify({
+    level: "info",
+    message: "catalog_import_completed",
+    requestId,
+    imported,
+    errors: errors.length,
+    durationMs: Date.now() - startedAt,
+  }));
   return NextResponse.json({ imported, errors: errors.length });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(JSON.stringify({
+      level: "error",
+      message: "catalog_import_failed",
+      requestId,
+      error: message,
+      durationMs: Date.now() - startedAt,
+    }));
+    return NextResponse.json(
+      { error: `No fue posible leer la lista: ${message}` },
+      { status: 500 },
+    );
+  }
 }
