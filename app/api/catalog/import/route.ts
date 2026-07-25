@@ -71,6 +71,7 @@ export async function POST(request: Request) {
   if (!user) return NextResponse.json({ error: "No autorizado." }, { status: 401 });
 
   const form = await request.formData();
+  const mode = String(form.get("mode") ?? "import");
   const companyId = String(form.get("company_id") ?? "");
   const supplierId = String(form.get("supplier_id") ?? "");
   const file = form.get("file");
@@ -89,14 +90,59 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Formato no compatible. Usa .xlsx o .csv." }, { status: 400 });
   }
 
-  const headerIndex = rows.findIndex((row) => {
+  const detectedHeaderIndex = rows.findIndex((row) => {
     const headers = row.map(normalize);
     return findColumn(headers, aliases.name) >= 0 && findColumn(headers, aliases.price) >= 0;
   });
-  if (headerIndex < 0) return NextResponse.json({ error: "No encontré columnas de descripción y precio." }, { status: 400 });
+  const fallbackHeaderIndex = rows
+    .slice(0, 20)
+    .reduce(
+      (best, row, index) => {
+        const populated = row.filter((cell) => String(cell ?? "").trim()).length;
+        return populated > best.populated ? { index, populated } : best;
+      },
+      { index: 0, populated: 0 },
+    ).index;
+  const requestedHeaderIndex = Number(form.get("header_index"));
+  const headerIndex = Number.isInteger(requestedHeaderIndex) && requestedHeaderIndex >= 0
+    ? requestedHeaderIndex
+    : detectedHeaderIndex >= 0
+      ? detectedHeaderIndex
+      : fallbackHeaderIndex;
 
   const headers = rows[headerIndex].map(normalize);
-  const columns = Object.fromEntries(Object.entries(aliases).map(([key, options]) => [key, findColumn(headers, options)])) as Record<keyof typeof aliases, number>;
+  const suggestedColumns = Object.fromEntries(
+    Object.entries(aliases).map(([key, options]) => [key, findColumn(headers, options)]),
+  ) as Record<keyof typeof aliases, number>;
+  if (mode === "preview") {
+    return NextResponse.json({
+      headerIndex,
+      headers: rows[headerIndex].map((cell, index) => String(cell ?? "").trim() || `Columna ${index + 1}`),
+      suggestedMapping: suggestedColumns,
+      previewRows: rows
+        .slice(headerIndex + 1)
+        .filter((row) => row.some((cell) => String(cell ?? "").trim()))
+        .slice(0, 6)
+        .map((row) => row.map((cell) => cell instanceof Date ? cell.toISOString().slice(0, 10) : String(cell ?? ""))),
+    });
+  }
+  let columns = suggestedColumns;
+  const rawMapping = form.get("mapping");
+  if (typeof rawMapping === "string" && rawMapping) {
+    const parsedMapping = JSON.parse(rawMapping) as Partial<Record<keyof typeof aliases, number>>;
+    columns = Object.fromEntries(
+      Object.keys(aliases).map((key) => {
+        const value = parsedMapping[key as keyof typeof aliases];
+        return [key, Number.isInteger(value) ? Number(value) : -1];
+      }),
+    ) as Record<keyof typeof aliases, number>;
+  }
+  if (columns.name < 0 || columns.price < 0) {
+    return NextResponse.json(
+      { error: "Debes emparejar las columnas Descripción y Precio." },
+      { status: 400 },
+    );
+  }
   const dataRows = rows.slice(headerIndex + 1).filter((row) => row.some((cell) => String(cell ?? "").trim()));
   const { data: importRecord, error: importError } = await supabase.from("price_list_imports").insert({
     company_id: companyId, supplier_id: supplierId, file_name: file.name, total_rows: dataRows.length, imported_by: user.id,
