@@ -32,13 +32,19 @@ export async function CompanySettings() {
   const v=(key:string)=>String(company[key]??"");
   const fields=[["trade_name","Nombre comercial"],["nit","NIT"],["verification_digit","Dígito de verificación"],["entity_type","Tipo de entidad"],["chamber_registration","Matrícula mercantil"],["address","Dirección"],["city","Ciudad"],["department","Departamento"],["country","País"],["postal_code","Código postal"],["phone","Teléfono"],["mobile","Celular"],["email","Correo corporativo"],["website","Página web"],["legal_representative","Representante legal"],["representative_document","Documento representante"],["tax_regime","Régimen tributario"],["invoice_resolution","Resolución de facturación"]] as const;
   return <>
-    <form action={updateCompanyProfile} className={`${box} mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4`}>
+    <nav className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <a href="#datos-empresa" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 font-bold text-white hover:border-yellow-500">1. Datos de la empresa</a>
+      <a href="#impuestos-iva" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 font-bold text-white hover:border-yellow-500">2. Impuestos e IVA</a>
+      <a href="#rup-empresa" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 font-bold text-white hover:border-yellow-500">3. RUP</a>
+      <a href="#documentos-empresa" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 font-bold text-white hover:border-yellow-500">4. Subir documentos</a>
+    </nav>
+    <form id="datos-empresa" action={updateCompanyProfile} className={`${box} mt-8 grid scroll-mt-6 gap-4 md:grid-cols-2 xl:grid-cols-4`}>
       <input type="hidden" name="company_id" value={company.id}/>
       <h2 className="text-xl font-bold md:col-span-2 xl:col-span-4">Ficha legal, tributaria y financiera</h2>
       <Field label="Razón social"><input name="legal_name" required defaultValue={v("legal_name")||company.name} className={input}/></Field>
       {fields.map(([key,label])=><Field key={key} label={label}><input name={key} defaultValue={v(key)||(key==="country"?"Colombia":"")} className={input}/></Field>)}
       <Field label="Fecha de constitución"><input type="date" name="incorporation_date" defaultValue={v("incorporation_date")} className={input}/></Field>
-      <Field label="IVA general (%)"><input type="number" min="0" max="100" step=".01" name="default_tax_percent" defaultValue={v("default_tax_percent")||"19"} className={input}/></Field>
+      <div id="impuestos-iva" className="scroll-mt-6"><Field label="IVA general (%)"><input type="number" min="0" max="100" step=".01" name="default_tax_percent" defaultValue={v("default_tax_percent")||"19"} className={input}/></Field></div>
       <Field label="Capital social"><input type="number" min="0" name="social_capital" defaultValue={v("social_capital")||"0"} className={input}/></Field>
       <Field label="Capital pagado"><input type="number" min="0" name="paid_in_capital" defaultValue={v("paid_in_capital")||"0"} className={input}/></Field>
       <Field label="Responsabilidades tributarias"><textarea name="tax_responsibilities" defaultValue={v("tax_responsibilities")} className={input}/></Field>
@@ -55,13 +61,13 @@ export async function CompanySettings() {
     <section className={`${box} mt-6`}>
       <h2 className="text-xl font-bold">Banco documental empresarial</h2>
       <p className="mt-1 text-sm text-zinc-400">Documentos reutilizables para proveedores, clientes y licitaciones.</p>
-      <div className="mt-6 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+      <div id="rup-empresa" className="mt-6 scroll-mt-6 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
         <h3 className="text-lg font-bold">RUP y perfil de contratación</h3>
         <p className="mt-1 text-sm text-zinc-400">Sube el RUP aquí. ATLAS guarda el PDF como documento base, extrae la información financiera y la experiencia, y permite corregirla antes de alimentar el radar SECOP.</p>
         <RupForm companyId={company.id} values={rupValues}/>
       </div>
       <div className="mt-5 grid gap-6 xl:grid-cols-[380px_1fr]">
-        <form action={uploadReusableDocument} className="space-y-3 rounded-xl bg-zinc-900 p-4">
+        <form id="documentos-empresa" action={uploadReusableDocument} className="scroll-mt-6 space-y-3 rounded-xl bg-zinc-900 p-4">
           <input type="hidden" name="company_id" value={company.id}/>
           <Field label="Tipo"><select name="category" className={input}><option value="CAMARA_COMERCIO">Cámara de Comercio</option><option value="RUT">RUT</option><option value="CEDULA_REPRESENTANTE">Cédula del representante legal</option><option value="DECLARACION_RENTA">Declaración de renta</option><option value="ESTADOS_FINANCIEROS">Estados financieros</option><option value="CERTIFICACION">Certificación</option><option value="OTRO">Otro</option></select></Field>
           <Field label="Archivo"><input required type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className={input}/></Field>
