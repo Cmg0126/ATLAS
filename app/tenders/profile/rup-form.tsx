@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
-import type { ExtractedRup } from "@/lib/rup-extractor";
+import type { ExtractedRup, ExtractedRupExperience } from "@/lib/rup-extractor";
 import { CurrencyInput } from "@/components/currency-input";
 import { Field, input, primary } from "../../domain-ui";
 import { saveRupProfile } from "./actions";
@@ -27,6 +27,7 @@ const initialForm = (values: RupValues): ExtractedRup => ({
 
 export function RupForm({ companyId, values }: { companyId: string; values: RupValues }) {
   const [form, setForm] = useState(() => initialForm(values));
+  const [experiences, setExperiences] = useState<ExtractedRupExperience[]>([]);
   const [fileName, setFileName] = useState("");
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -52,14 +53,18 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
           ? "El PDF supera el límite de carga de Vercel. Usa un archivo de máximo 4 MB."
           : "Vercel no pudo procesar el PDF. Intenta nuevamente en unos segundos.");
       }
-      const result = await response.json() as { values?: ExtractedRup; found?: number; pages?: number; error?: string };
+      const result = await response.json() as {
+        values?: ExtractedRup; experiences?: ExtractedRupExperience[]; found?: number;
+        experienceCount?: number; pages?: number; error?: string;
+      };
       if (!response.ok || !result.values) throw new Error(result.error || "No fue posible procesar el PDF.");
       const extracted = result.values;
       setForm((current) => ({
         ...current,
         ...Object.fromEntries(Object.entries(extracted).filter(([key, value]) => key === "is_mipyme" || value !== "")),
       }));
-      setStatus(`ATLAS encontró ${result.found ?? 0} campos en ${result.pages ?? 0} página(s). Revisa y modifica lo necesario antes de guardar.`);
+      setExperiences(result.experiences ?? []);
+      setStatus(`ATLAS encontró ${result.found ?? 0} campos financieros y ${result.experienceCount ?? 0} experiencias en ${result.pages ?? 0} página(s). Revisa y modifica lo necesario antes de guardar.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "No fue posible procesar el PDF.");
     } finally {
@@ -103,6 +108,7 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
 
     <form action={saveRupProfile} className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <input type="hidden" name="company_id" value={companyId} />
+      <input type="hidden" name="rup_experiences_json" value={JSON.stringify(experiences)} />
       <Field label="Fecha de expedición"><input type="date" name="issue_date" {...bind("issue_date")} className={input} /></Field>
       <Field label="Vigente hasta"><input type="date" name="valid_until" {...bind("valid_until")} className={input} /></Field>
       <Field label="Año fiscal"><input type="number" name="fiscal_year" min="2000" max="2100" {...bind("fiscal_year")} className={input} /></Field>
@@ -119,6 +125,30 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
       <label className="flex items-center gap-3 rounded-xl border px-4 py-3"><input type="checkbox" name="is_mipyme"
         checked={form.is_mipyme} onChange={(event) => change("is_mipyme", event.target.checked)} /> Empresa Mipyme</label>
       <div className="md:col-span-2"><Field label="Notas"><textarea name="notes" rows={3} {...bind("notes")} className={input} /></Field></div>
+      {experiences.length > 0 && (
+        <section className="space-y-3 md:col-span-2 xl:col-span-4">
+          <div>
+            <h3 className="text-lg font-bold">Experiencia acreditada extraída del RUP</h3>
+            <p className="text-sm text-zinc-500">El certificado no contiene objeto, fecha de terminación ni valor original en pesos. Puedes completarlos después.</p>
+          </div>
+          {experiences.map((experience, index) => (
+            <article key={`${experience.contract_number}-${index}`} className="grid gap-3 rounded-2xl border p-4 md:grid-cols-2 xl:grid-cols-4">
+              <Field label="Consecutivo">
+                <input value={experience.contract_number} onChange={(event) => setExperiences((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, contract_number: event.target.value } : item))} className={input} />
+              </Field>
+              <Field label="Contratante">
+                <input value={experience.client} onChange={(event) => setExperiences((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, client: event.target.value } : item))} className={input} />
+              </Field>
+              <Field label="Valor acreditado en SMMLV">
+                <input type="number" step="0.01" value={experience.value_smmlv} onChange={(event) => setExperiences((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, value_smmlv: event.target.value } : item))} className={input} />
+              </Field>
+              <Field label="Códigos UNSPSC">
+                <input value={experience.unspsc_codes.join(", ")} onChange={(event) => setExperiences((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, unspsc_codes: event.target.value.split(",").map((code) => code.trim()).filter(Boolean) } : item))} className={input} />
+              </Field>
+            </article>
+          ))}
+        </section>
+      )}
       <button className={`${primary} md:col-span-2 xl:col-span-4`}>Guardar información RUP revisada</button>
     </form>
   </>;

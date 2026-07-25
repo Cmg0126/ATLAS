@@ -35,6 +35,40 @@ export async function saveRupProfile(data: FormData) {
     notes: nullable(text(data, "notes")),
     updated_at: new Date().toISOString(),
   }, "company_id");
+
+  const rawExperiences = text(data, "rup_experiences_json");
+  if (rawExperiences) {
+    type ImportedExperience = {
+      contract_number?: string; client?: string; contract_object?: string; completion_date?: string;
+      value_cop?: string; value_smmlv?: string; unspsc_codes?: string[];
+    };
+    const imported = JSON.parse(rawExperiences) as ImportedExperience[];
+    const existing = await dbSelect<{ id: string; contract_number: string | null }>("rup_experiences", {
+      select: "id,contract_number", company_id: `eq.${companyId}`,
+    });
+    const byContract = new Map(existing.map((item) => [item.contract_number, item.id]));
+
+    for (const experience of imported) {
+      const contractNumber = String(experience.contract_number ?? "").trim();
+      const client = String(experience.client ?? "").trim();
+      if (!contractNumber || !client) continue;
+      const record = {
+        company_id: companyId,
+        contract_number: contractNumber,
+        client,
+        contract_object: String(experience.contract_object ?? "").trim() || "Experiencia acreditada en RUP - objeto pendiente de completar",
+        completion_date: nullable(String(experience.completion_date ?? "").trim()),
+        value_cop: Number(experience.value_cop ?? 0) || 0,
+        value_smmlv: Number(experience.value_smmlv ?? 0) || 0,
+        unspsc_codes: Array.isArray(experience.unspsc_codes)
+          ? experience.unspsc_codes.map((code) => String(code).replace(/\D/g, "")).filter(Boolean)
+          : [],
+      };
+      const existingId = byContract.get(contractNumber);
+      if (existingId) await dbUpdate("rup_experiences", { id: `eq.${existingId}`, company_id: `eq.${companyId}` }, record);
+      else await dbInsert("rup_experiences", record);
+    }
+  }
   revalidatePath("/tenders/profile");
   revalidatePath("/tenders/secop");
 }

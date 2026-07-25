@@ -16,6 +16,16 @@ export type ExtractedRup = {
   notes: string;
 };
 
+export type ExtractedRupExperience = {
+  contract_number: string;
+  client: string;
+  contract_object: string;
+  completion_date: string;
+  value_cop: string;
+  value_smmlv: string;
+  unspsc_codes: string[];
+};
+
 const clean = (value: string) => value.replace(/\u00a0/g, " ").replace(/[ \t]+/g, " ").trim();
 
 const money = (value?: string) => {
@@ -74,6 +84,29 @@ export function extractRupFromText(rawText: string): ExtractedRup {
     is_mipyme: /\b(mipyme|microempresa|peque[nñ]a empresa|mediana empresa)\b/i.test(source),
     notes: "",
   };
+}
+
+export function extractRupExperiencesFromText(rawText: string): ExtractedRupExperience[] {
+  const blocks = rawText.split(/\*{3}\s*EXPERIENCIA\s+No\.\s*/i).slice(1);
+
+  return blocks.flatMap((block) => {
+    const contractNumber = block.match(/N[ÚU]MERO\s+CONSECUTIVO\s+DEL\s+CONTRATO\s*:\s*([^\r\n]+)/i)?.[1]?.trim() ?? "";
+    const client = block.match(/NOMBRE\s+DEL\s+CONTRATANTE\s*:\s*([^\r\n]+)/i)?.[1]?.trim() ?? "";
+    const smmlv = block.match(/VALOR\s+CONTRATADO\s+EN\s+SMMLV\s*:\s*([\d.,]+)/i)?.[1] ?? "";
+    const codes = [...block.matchAll(/\b(\d{2})\s+(\d{2})\s+(\d{2})\s+00\s*:/g)]
+      .map((match) => `${match[1]}${match[2]}${match[3]}00`);
+
+    if (!contractNumber || !client || !smmlv) return [];
+    return [{
+      contract_number: contractNumber,
+      client,
+      contract_object: "",
+      completion_date: "",
+      value_cop: "",
+      value_smmlv: smmlv.replace(/\./g, "").replace(",", "."),
+      unspsc_codes: [...new Set(codes)],
+    }];
+  });
 }
 
 export function extractedFieldCount(data: ExtractedRup) {

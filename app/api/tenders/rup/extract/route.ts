@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { extractedFieldCount, extractRupFromText } from "@/lib/rup-extractor";
+import { extractedFieldCount, extractRupExperiencesFromText, extractRupFromText } from "@/lib/rup-extractor";
 
 export const runtime = "nodejs";
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
@@ -107,7 +107,14 @@ export async function POST(request: Request) {
       }, { status: 422 });
     }
     const values = extractRupFromText(result.text);
-    return NextResponse.json({ values, found: extractedFieldCount(values), pages: result.total });
+    const experiences = extractRupExperiencesFromText(result.text);
+    return NextResponse.json({
+      values,
+      experiences,
+      found: extractedFieldCount(values),
+      experienceCount: experiences.length,
+      pages: result.total,
+    });
   } catch (error) {
     console.error("[rup:extract] Falló el análisis del texto extraído.", {
       fileName: file.name,
