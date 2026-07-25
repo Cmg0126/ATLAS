@@ -51,6 +51,66 @@ export async function updateCompanySettings(formData: FormData) {
   revalidatePath("/catalog");
 }
 
+export async function updateCompanyProfile(formData: FormData) {
+  const companyId = required(formData, "company_id", "La empresa");
+  const taxPercent = Number(text(formData, "default_tax_percent") || 19);
+  if (!Number.isFinite(taxPercent) || taxPercent < 0 || taxPercent > 100) throw new Error("El IVA debe estar entre 0% y 100%.");
+  const numeric = (key: string) => Math.max(0, Number(text(formData, key) || 0));
+  await dbUpdate("companies", { id: `eq.${companyId}` }, {
+    name: required(formData, "legal_name", "La razón social"),
+    legal_name: required(formData, "legal_name", "La razón social"),
+    trade_name: nullable(text(formData, "trade_name")), nit: nullable(text(formData, "nit")),
+    verification_digit: nullable(text(formData, "verification_digit")), entity_type: nullable(text(formData, "entity_type")),
+    address: nullable(text(formData, "address")), city: nullable(text(formData, "city")),
+    department: nullable(text(formData, "department")), country: text(formData, "country") || "Colombia",
+    postal_code: nullable(text(formData, "postal_code")), phone: nullable(text(formData, "phone")),
+    mobile: nullable(text(formData, "mobile")), email: nullable(text(formData, "email")),
+    website: nullable(text(formData, "website")), legal_representative: nullable(text(formData, "legal_representative")),
+    representative_document: nullable(text(formData, "representative_document")),
+    incorporation_date: nullable(text(formData, "incorporation_date")),
+    chamber_registration: nullable(text(formData, "chamber_registration")),
+    social_capital: numeric("social_capital"), paid_in_capital: numeric("paid_in_capital"),
+    tax_regime: nullable(text(formData, "tax_regime")), tax_responsibilities: nullable(text(formData, "tax_responsibilities")),
+    withholding_agent: formData.get("withholding_agent") === "on",
+    industry_commerce_taxpayer: formData.get("industry_commerce_taxpayer") === "on",
+    invoice_resolution: nullable(text(formData, "invoice_resolution")),
+    default_tax_percent: taxPercent, notes: nullable(text(formData, "notes")),
+  });
+  revalidatePath("/commercial/setup");
+}
+
+export async function createCompanyContact(formData: FormData) {
+  await dbInsert("company_contacts", {
+    company_id: required(formData, "company_id", "La empresa"),
+    full_name: required(formData, "full_name", "El contacto"),
+    position: nullable(text(formData, "position")), contact_type: text(formData, "contact_type") || "ADMINISTRATIVE",
+    email: nullable(text(formData, "email")), phone: nullable(text(formData, "phone")),
+    is_primary: formData.get("is_primary") === "on",
+  });
+  revalidatePath("/commercial/setup");
+}
+
+export async function createCompanyCiiu(formData: FormData) {
+  await dbInsert("company_ciiu_codes", {
+    company_id: required(formData, "company_id", "La empresa"),
+    code: required(formData, "code", "El código CIIU"), description: nullable(text(formData, "description")),
+    is_primary: formData.get("is_primary") === "on",
+  });
+  revalidatePath("/commercial/setup");
+}
+
+export async function createCompanyTaxEvent(formData: FormData) {
+  await dbInsert("company_tax_calendar", {
+    company_id: required(formData, "company_id", "La empresa"),
+    obligation: required(formData, "obligation", "La obligación"),
+    tax_year: Number(text(formData, "tax_year") || new Date().getFullYear()),
+    period: nullable(text(formData, "period")), due_date: required(formData, "due_date", "La fecha"),
+    status: text(formData, "status") || "PENDING", amount: text(formData, "amount") ? Number(text(formData, "amount")) : null,
+    notes: nullable(text(formData, "notes")),
+  });
+  revalidatePath("/commercial/setup");
+}
+
 export async function createClient(formData: FormData) {
   const companyId = required(formData, "company_id", "La empresa");
   const name = required(formData, "name", "El nombre");
