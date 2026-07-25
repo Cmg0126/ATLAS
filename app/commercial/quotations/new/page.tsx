@@ -55,9 +55,11 @@ export default async function NewQuotationPage({
                 ))}
               </select>
             </Field>
-            <Field label="Número de cotización">
-              <input name="quotation_number" required className={input} placeholder="COT-2026-001" />
-            </Field>
+            <div className="rounded-xl border border-yellow-300 bg-yellow-50 p-4">
+              <p className="text-sm font-semibold text-zinc-700">Número de cotización</p>
+              <p className="mt-2 text-lg font-bold text-zinc-950">Automático: COT-78-26V1</p>
+              <p className="mt-1 text-xs text-zinc-500">ATLAS asignará el siguiente consecutivo disponible.</p>
+            </div>
             <Field label="Válida hasta">
               <input type="date" name="validity_date" className={input} />
             </Field>

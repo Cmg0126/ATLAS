@@ -106,7 +106,6 @@ export async function createQuotation(formData: FormData) {
   const opportunityId = required(formData, "opportunity_id", "La oportunidad");
   await dbInsert("quotations", {
     opportunity_id: opportunityId,
-    quotation_number: required(formData, "quotation_number", "El número"),
     subtotal: 0, discount_total: 0, tax_total: 0, total: 0,
     validity_date: nullable(text(formData, "validity_date")),
     notes: nullable(text(formData, "notes")),
