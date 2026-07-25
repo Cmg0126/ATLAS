@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { getSupabaseAdminClient } from "@/lib/supabase-admin";
 import { extractedFieldCount, extractRupExperiencesFromText, extractRupFromText } from "@/lib/rup-extractor";
 
 export const runtime = "nodejs";
@@ -63,6 +64,7 @@ export async function POST(request: Request) {
 
   const formData = await request.formData();
   const file = formData.get("file");
+  const companyId = String(formData.get("company_id") ?? "");
   if (!(file instanceof File)) return NextResponse.json({ error: "Selecciona un archivo PDF." }, { status: 400 });
   if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
     return NextResponse.json({ error: "El archivo debe ser un PDF." }, { status: 400 });
@@ -70,6 +72,10 @@ export async function POST(request: Request) {
   if (file.size > MAX_FILE_SIZE) {
     return NextResponse.json({ error: "El PDF no puede superar 15 MB." }, { status: 400 });
   }
+  if (!companyId) return NextResponse.json({ error: "Selecciona la empresa." }, { status: 400 });
+  const { data: membership } = await supabase.from("profiles").select("id")
+    .eq("id", user.id).eq("company_id", companyId).eq("is_active", true).maybeSingle();
+  if (!membership) return NextResponse.json({ error: "No tienes acceso a esa empresa." }, { status: 403 });
 
   const data = new Uint8Array(await file.arrayBuffer());
   let result: { text: string; total: number };
@@ -108,11 +114,33 @@ export async function POST(request: Request) {
     }
     const values = extractRupFromText(result.text);
     const experiences = extractRupExperiencesFromText(result.text);
+    const admin = getSupabaseAdminClient();
+    const storagePath = `${companyId}/RUP/rup-vigente.pdf`;
+    const { error: uploadError } = await admin.storage.from("tender-documents").upload(
+      storagePath,
+      data,
+      { contentType: "application/pdf", upsert: true },
+    );
+    if (uploadError) throw new Error(`No fue posible archivar el RUP: ${uploadError.message}`);
+    const { error: metadataError } = await admin.from("reusable_tender_documents").upsert({
+      company_id: companyId,
+      category: "RUP",
+      name: file.name,
+      storage_path: storagePath,
+      mime_type: "application/pdf",
+      file_size: file.size,
+      issue_date: values.issue_date || null,
+      valid_until: values.valid_until || null,
+      uploaded_by: user.id,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "storage_path" });
+    if (metadataError) throw new Error(`No fue posible registrar el RUP: ${metadataError.message}`);
     return NextResponse.json({
       values,
       experiences,
       found: extractedFieldCount(values),
       experienceCount: experiences.length,
+      archived: true,
       pages: result.total,
     });
   } catch (error) {

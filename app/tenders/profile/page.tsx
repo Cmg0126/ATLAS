@@ -51,7 +51,7 @@ export default async function ProcurementProfilePage({ searchParams }: { searchP
   return <AppShell>
     <div className="flex flex-wrap items-start justify-between gap-4">
       <PageTitle domain="Contratación" title="Perfil de contratación y RUP" description="Capacidad financiera, organizacional y experiencia acreditada de la empresa." />
-      <div className="flex gap-3"><Link href="/tenders/secop" className={primary}>Radar SECOP</Link><Link href="/tenders" className="rounded-xl border px-4 py-3 font-semibold">Licitaciones</Link></div>
+      <div className="flex gap-3"><Link href="/tenders/documents" className="rounded-xl border px-4 py-3 font-semibold">Documentos</Link><Link href="/tenders/secop" className={primary}>Radar SECOP</Link><Link href="/tenders" className="rounded-xl border px-4 py-3 font-semibold">Licitaciones</Link></div>
     </div>
 
     {!companyId ? <div className="mt-7 rounded-xl border p-6">Primero debes configurar una empresa.</div> : <>

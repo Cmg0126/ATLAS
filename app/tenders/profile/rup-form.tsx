@@ -45,6 +45,7 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
     setFileName(file.name);
     const payload = new FormData();
     payload.set("file", file);
+    payload.set("company_id", companyId);
     try {
       const response = await fetch("/api/tenders/rup/extract", { method: "POST", body: payload });
       const contentType = response.headers.get("content-type") ?? "";
