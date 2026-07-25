@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { TaxonomyFields, type TaxonomySystemOption } from "./TaxonomyFields";
 
 type Option = { id: string; name: string };
-type MappingKey = "sku" | "name" | "brand" | "model" | "category" | "unit" | "price" | "tax";
+type MappingKey = "sku" | "name" | "brand" | "model" | "unit" | "price" | "tax";
 type Mapping = Record<MappingKey, number>;
 type Preview = {
   headerIndex: number;
@@ -17,7 +18,6 @@ const fields: { key: MappingKey; label: string; required?: boolean }[] = [
   { key: "name", label: "Descripción", required: true },
   { key: "brand", label: "Marca" },
   { key: "model", label: "Modelo / referencia" },
-  { key: "category", label: "Categoría" },
   { key: "unit", label: "Unidad" },
   { key: "price", label: "Precio", required: true },
   { key: "tax", label: "IVA %" },
@@ -30,12 +30,13 @@ async function readResponse(response: Response) {
     : { error: `El servidor no pudo procesar el archivo (HTTP ${response.status}).` };
 }
 
-export function PriceListImporter({ companies, suppliers }: { companies: Option[]; suppliers: Option[] }) {
+export function PriceListImporter({ companies, suppliers, systems }: { companies: Option[]; suppliers: Option[]; systems: TaxonomySystemOption[] }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [preview, setPreview] = useState<Preview | null>(null);
   const [mapping, setMapping] = useState<Mapping | null>(null);
+  const [classificationMode, setClassificationMode] = useState<"BLOCK" | "AI">("BLOCK");
 
   async function requestPreview() {
     if (!formRef.current?.reportValidity()) return;
@@ -98,6 +99,14 @@ export function PriceListImporter({ companies, suppliers }: { companies: Option[
         <label className="block text-sm font-semibold text-zinc-200">Lista de precios
           <input name="file" type="file" accept=".xlsx,.csv" required className="mt-2 w-full rounded-xl border bg-zinc-950 px-4 py-3" />
         </label>
+        <fieldset className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
+          <legend className="px-2 text-sm font-semibold text-zinc-200">Método de clasificación</legend>
+          <label className="flex gap-3 py-2 text-sm text-zinc-200"><input type="radio" name="classification_mode" value="BLOCK" checked={classificationMode === "BLOCK"} onChange={() => setClassificationMode("BLOCK")} />Aplicar una clasificación a todo el bloque</label>
+          <label className="flex gap-3 py-2 text-sm text-zinc-200"><input type="radio" name="classification_mode" value="AI" checked={classificationMode === "AI"} onChange={() => setClassificationMode("AI")} />Motor ITLATAM: analizar referencia y descripción</label>
+        </fieldset>
+        {classificationMode === "BLOCK"
+          ? <div className="grid gap-4"><TaxonomyFields systems={systems} required /></div>
+          : <p className="rounded-xl border border-yellow-900 bg-yellow-950/30 p-4 text-sm text-yellow-200">La IA completará únicamente clasificaciones confiables. Los productos dudosos quedarán en la bandeja de pendientes para que los corrijas después.</p>}
         <p className="text-xs text-zinc-500">ATLAS mostrará una vista previa para que emparejes las columnas antes de guardar.</p>
         <button type="button" disabled={busy} onClick={requestPreview} className="w-full rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black disabled:opacity-50">
           {busy ? "Leyendo archivo..." : "Continuar y emparejar columnas"}
