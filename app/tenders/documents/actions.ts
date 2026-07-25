@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { getSupabaseAdminClient } from "@/lib/supabase-admin";
+import { extractCompanyDocument, extractPdfText } from "@/lib/company-document-extractor";
 
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
 const allowedTypes = new Set(["application/pdf", "image/png", "image/jpeg"]);
@@ -46,6 +47,22 @@ export async function uploadReusableDocument(data: FormData) {
   if (metadataError) {
     await admin.storage.from("tender-documents").remove([storagePath]);
     throw new Error(`No fue posible registrar el documento: ${metadataError.message}`);
+  }
+  if (file.type === "application/pdf" && ["RUT", "CAMARA_COMERCIO"].includes(category)) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const extracted = extractCompanyDocument(await extractPdfText(bytes), category);
+    if (Object.keys(extracted.fields).length) {
+      const { error: companyError } = await admin.from("companies").update(extracted.fields).eq("id", companyId);
+      if (companyError) throw new Error(`El documento se guardó, pero no fue posible completar la empresa: ${companyError.message}`);
+    }
+    for (const [index, item] of extracted.ciiu.entries()) {
+      await admin.from("company_ciiu_codes").upsert({
+        company_id: companyId,
+        code: item.code,
+        description: item.description || null,
+        is_primary: index === 0,
+      }, { onConflict: "company_id,code" });
+    }
   }
   revalidatePath("/tenders/documents");
   revalidatePath("/commercial/setup");

@@ -67,8 +67,10 @@ export async function dbUpdate(table: string, filters: Record<string, QueryValue
   const { url } = await getConfig();
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(filters)) if (value !== undefined && value !== null) search.set(key, String(value));
-  const response = await fetch(`${url}/rest/v1/${table}?${search.toString()}`, { method: "PATCH", headers: await getHeaders(), body: JSON.stringify(payload) });
+  const response = await fetch(`${url}/rest/v1/${table}?${search.toString()}`, { method: "PATCH", headers: await getHeaders("return=representation"), body: JSON.stringify(payload) });
   if (!response.ok) throw new Error(`Supabase UPDATE ${table}: ${await response.text()}`);
+  const rows = await response.json() as unknown[];
+  if (rows.length === 0) throw new Error(`Supabase UPDATE ${table}: no se actualizó ningún registro. Verifica los permisos y vuelve a intentar.`);
 }
 
 export async function dbDelete(table: string, filters: Record<string, QueryValue>): Promise<void> {
