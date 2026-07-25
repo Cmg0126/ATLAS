@@ -6,6 +6,7 @@ import {
   updateQuotationStatus,
 } from "../../actions";
 import { Empty, Field, input } from "../../ui";
+import { ProductSearchFields, type CatalogProduct } from "./ProductSearchFields";
 
 export type QuotationItem = {
   id: string; description: string; unit: string; quantity: number; unit_price: number;
@@ -19,12 +20,12 @@ export type Quotation = {
 type Option = { id: string; name: string };
 type Props = {
   opportunityId: string; opportunityTitle: string; quotations: Quotation[];
-  companies: Option[]; branches: Option[];
+  companies: Option[]; branches: Option[]; products: CatalogProduct[];
 };
 
 const money = new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
 
-export default function QuotationManager({ opportunityId, opportunityTitle, quotations, companies, branches }: Props) {
+export default function QuotationManager({ opportunityId, opportunityTitle, quotations, companies, branches, products }: Props) {
   return <section className="mt-6 rounded-2xl border bg-white p-6 shadow-sm">
     <h2 className="text-xl font-bold">Cotizaciones ({quotations.length})</h2>
     <div className="mt-4 space-y-6">
@@ -56,12 +57,7 @@ export default function QuotationManager({ opportunityId, opportunityTitle, quot
         </div>
         <form action={createQuotationItem} className="mt-4 grid gap-3 rounded-xl border p-4 md:grid-cols-6">
           <input type="hidden" name="quotation_id" value={quotation.id} /><input type="hidden" name="opportunity_id" value={opportunityId} />
-          <Field label="Descripción"><input name="description" required className={input} /></Field>
-          <Field label="Unidad"><input name="unit" defaultValue="UND" required className={input} /></Field>
-          <Field label="Cantidad"><input type="number" name="quantity" min="0.01" step="0.01" defaultValue="1" required className={input} /></Field>
-          <Field label="Precio unitario"><input type="number" name="unit_price" min="0" step="0.01" required className={input} /></Field>
-          <Field label="Descuento %"><input type="number" name="discount_percent" min="0" max="100" step="0.01" defaultValue="0" className={input} /></Field>
-          <Field label="IVA %"><input type="number" name="tax_percent" min="0" max="100" step="0.01" defaultValue="19" className={input} /></Field>
+          <ProductSearchFields products={products} />
           <button className="rounded-xl bg-orange-500 px-4 py-3 font-semibold text-white md:col-span-6">Agregar partida y recalcular</button>
         </form>
         <div className="ml-auto mt-4 grid max-w-sm grid-cols-2 gap-2 text-sm">

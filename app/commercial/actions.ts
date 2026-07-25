@@ -148,6 +148,9 @@ export async function createQuotationItem(formData: FormData) {
   const opportunityId = required(formData, "opportunity_id", "La oportunidad");
   await dbInsert("quotation_items", {
     quotation_id: quotationId,
+    product_id: nullable(text(formData, "product_id")),
+    supplier_price_id: nullable(text(formData, "supplier_price_id")),
+    reference_cost: amount(text(formData, "reference_cost")),
     description: required(formData, "description", "La descripción"),
     unit: text(formData, "unit") || "UND",
     quantity: amount(required(formData, "quantity", "La cantidad")),

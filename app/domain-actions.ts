@@ -60,9 +60,12 @@ export async function updatePurchaseOrder(data: FormData) {
 }
 export async function createPurchaseOrderItem(data: FormData) {
   const orderId = required(data, "purchase_order_id", "La orden");
+  const productId = required(data, "product_id", "El producto");
+  const [product] = await dbSelect<{name:string;unit:string}>("catalog_products", {select:"name,unit",id:`eq.${productId}`});
+  if (!product) throw new Error("El producto no existe en el catálogo.");
   await dbInsert("purchase_order_items", {
-    purchase_order_id: orderId, description: required(data, "description", "La descripción"),
-    inventory_item_id: nullable(text(data, "inventory_item_id")),
+    purchase_order_id: orderId, description: text(data, "description") || product.name,
+    product_id: productId, delivery_destination: text(data, "delivery_destination") || "PROJECT",
     quantity: number(text(data, "quantity")) || 1, unit_cost: number(text(data, "unit_cost")),
   });
   const items = await dbSelect<{ quantity: number; unit_cost: number }>("purchase_order_items", { select: "quantity,unit_cost", purchase_order_id: `eq.${orderId}` });
@@ -83,30 +86,52 @@ export async function receivePurchaseOrderItem(data: FormData) {
     select: "company_id,order_number,project_id,status", id: `eq.${orderId}`,
   });
   if (!order || order.status === "CANCELLED") throw new Error("La orden no está disponible para recepción.");
-  const [orderItem] = await dbSelect<{ inventory_item_id: string | null; quantity: number; received_quantity: number; unit_cost: number }>("purchase_order_items", {
-    select: "inventory_item_id,quantity,received_quantity,unit_cost", id: `eq.${orderItemId}`, purchase_order_id: `eq.${orderId}`,
+  const [orderItem] = await dbSelect<{ product_id: string | null; delivery_destination:string; quantity: number; received_quantity: number; unit_cost: number; delivered_to_project_quantity:number; warehouse_quantity:number }>("purchase_order_items", {
+    select: "product_id,delivery_destination,quantity,received_quantity,unit_cost,delivered_to_project_quantity,warehouse_quantity", id: `eq.${orderItemId}`, purchase_order_id: `eq.${orderId}`,
   });
-  if (!orderItem?.inventory_item_id) throw new Error("La partida debe estar vinculada a un artículo de inventario.");
+  if (!orderItem?.product_id) throw new Error("La partida debe estar vinculada al catálogo.");
   const pending = Number(orderItem.quantity) - Number(orderItem.received_quantity);
   if (receiveQuantity > pending) throw new Error(`Solo quedan ${pending} unidades pendientes.`);
 
-  const [inventoryItem] = await dbSelect<{ current_stock: number }>("inventory_items", {
-    select: "current_stock", id: `eq.${orderItem.inventory_item_id}`,
-  });
-  if (!inventoryItem) throw new Error("El artículo de inventario no existe.");
-
-  await dbInsert("inventory_movements", {
-    company_id: order.company_id, item_id: orderItem.inventory_item_id, project_id: order.project_id,
-    movement_type: "IN", quantity: receiveQuantity, reference: `OC ${order.order_number}`,
-    notes: "Recepción de orden de compra",
-  });
-  await dbUpdate("inventory_items", { id: `eq.${orderItem.inventory_item_id}` }, {
-    current_stock: Number(inventoryItem.current_stock) + receiveQuantity,
-    unit_cost: Number(orderItem.unit_cost),
-    updated_at: new Date().toISOString(),
-  });
+  if (orderItem.delivery_destination === "PROJECT") {
+    if (!order.project_id) throw new Error("La entrega directa requiere una orden asociada a un proyecto.");
+    const [requirement] = await dbSelect<{id:string;quantity_delivered:number;quantity_purchased:number}>("project_material_requirements", {
+      select:"id,quantity_delivered,quantity_purchased", project_id:`eq.${order.project_id}`, product_id:`eq.${orderItem.product_id}`,
+    });
+    if (requirement) await dbUpdate("project_material_requirements", {id:`eq.${requirement.id}`}, {
+      quantity_delivered:Number(requirement.quantity_delivered)+receiveQuantity,
+      quantity_purchased:Math.max(Number(requirement.quantity_purchased), Number(orderItem.quantity)),
+      updated_at:new Date().toISOString(),
+    });
+    else await dbInsert("project_material_requirements", {
+      project_id:order.project_id,product_id:orderItem.product_id,quantity_required:orderItem.quantity,
+      quantity_purchased:orderItem.quantity,quantity_delivered:receiveQuantity,
+    });
+  } else {
+    const [product] = await dbSelect<{internal_sku:string|null;name:string;category:string|null;unit:string}>("catalog_products", {
+      select:"internal_sku,name,category,unit",id:`eq.${orderItem.product_id}`,
+    });
+    if (!product) throw new Error("El producto no existe.");
+    let [inventoryItem] = await dbSelect<{ id:string;current_stock:number }>("inventory_items", {
+      select: "id,current_stock", company_id:`eq.${order.company_id}`,product_id:`eq.${orderItem.product_id}`,
+    });
+    if (!inventoryItem) inventoryItem=await dbInsert<{id:string;current_stock:number}>("inventory_items", {
+      company_id:order.company_id,product_id:orderItem.product_id,sku:product.internal_sku||`CAT-${orderItem.product_id.slice(0,8)}`,
+      name:product.name,category:product.category,unit:product.unit,current_stock:0,min_stock:0,unit_cost:orderItem.unit_cost,
+    });
+    await dbInsert("inventory_movements", {
+      company_id: order.company_id, item_id: inventoryItem.id, project_id: order.project_id,
+      movement_type: "IN", quantity: receiveQuantity, reference: `OC ${order.order_number}`,
+      notes: "Recepción para bodega residual",
+    });
+    await dbUpdate("inventory_items", { id: `eq.${inventoryItem.id}` }, {
+      current_stock: Number(inventoryItem.current_stock) + receiveQuantity, unit_cost: Number(orderItem.unit_cost), updated_at: new Date().toISOString(),
+    });
+  }
   await dbUpdate("purchase_order_items", { id: `eq.${orderItemId}` }, {
     received_quantity: Number(orderItem.received_quantity) + receiveQuantity,
+    delivered_to_project_quantity: Number(orderItem.delivered_to_project_quantity) + (orderItem.delivery_destination==="PROJECT"?receiveQuantity:0),
+    warehouse_quantity: Number(orderItem.warehouse_quantity) + (orderItem.delivery_destination==="WAREHOUSE"?receiveQuantity:0),
   });
 
   const items = await dbSelect<{ quantity: number; received_quantity: number }>("purchase_order_items", {
@@ -119,6 +144,16 @@ export async function receivePurchaseOrderItem(data: FormData) {
     updated_at: new Date().toISOString(),
   });
   refresh("/purchasing", "/inventory");
+}
+
+export async function createProjectMaterialRequirement(data: FormData) {
+  const projectId=required(data,"project_id","El proyecto");
+  const productId=required(data,"product_id","El producto");
+  const quantityRequired=number(required(data,"quantity_required","La cantidad"));
+  const [existing]=await dbSelect<{id:string}>("project_material_requirements",{select:"id",project_id:`eq.${projectId}`,product_id:`eq.${productId}`});
+  if(existing) await dbUpdate("project_material_requirements",{id:`eq.${existing.id}`},{quantity_required:quantityRequired,notes:nullable(text(data,"notes")),updated_at:new Date().toISOString()});
+  else await dbInsert("project_material_requirements",{project_id:projectId,product_id:productId,quantity_required:quantityRequired,notes:nullable(text(data,"notes"))});
+  refresh(`/projects/${projectId}`);
 }
 
 export async function createInventoryItem(data: FormData) {
