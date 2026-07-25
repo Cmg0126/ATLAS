@@ -99,11 +99,11 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
   );
 
   return <>
-    <div className="mt-5 rounded-2xl border border-dashed border-orange-300 bg-orange-50 p-5">
+    <div className="mt-5 rounded-2xl border border-dashed border-yellow-500/60 bg-zinc-950 p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="rounded-xl bg-orange-500 p-3 text-white"><FileText size={22} /></div>
-          <div><p className="font-bold">Extraer datos desde el PDF del RUP</p><p className="text-sm text-zinc-600">PDF con texto, máximo 15 MB. Nada se guarda hasta que confirmes.</p></div>
+          <div className="rounded-xl bg-yellow-500 p-3 text-black"><FileText size={22} /></div>
+          <div><p className="font-bold">Subir, archivar y extraer el RUP</p><p className="text-sm text-zinc-400">El PDF se guarda inmediatamente como documento base. Después puedes revisar y confirmar los datos extraídos.</p></div>
         </div>
         <label className={`${primary} cursor-pointer`}>
           <Upload className="mr-2 inline" size={17} />{extracting ? "Leyendo PDF..." : "Seleccionar PDF"}
@@ -172,7 +172,7 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
           ))}
         </section>
       )}
-      <button className={`${primary} md:col-span-2 xl:col-span-4`}>Guardar información RUP revisada</button>
+      <button className={`${primary} md:col-span-2 xl:col-span-4`}>Guardar datos RUP revisados y actualizar SECOP</button>
     </form>
   </>;
 }

@@ -1,21 +1,34 @@
 import { dbSelect } from "@/lib/supabase-rest";
 import { createCompanyCiiu, createCompanyContact, createCompanyTaxEvent, updateCompanyProfile } from "../actions";
 import { uploadReusableDocument } from "../../tenders/documents/actions";
+import { RupForm } from "../../tenders/profile/rup-form";
 import { Field, input } from "../ui";
 
 type Company = Record<string, string | number | boolean | null> & { id:string; name:string };
 type Row = Record<string, string | boolean | null> & { id:string };
+type Rup = {
+  issue_date: string | null; valid_until: string | null; fiscal_year: number | null;
+  current_assets: number; current_liabilities: number; total_assets: number; total_liabilities: number;
+  equity: number; operating_profit: number; interest_expense: number; net_income: number;
+  residual_capacity: number; is_mipyme: boolean; domicile: string | null; notes: string | null;
+};
 const box="rounded-2xl border border-zinc-800 bg-zinc-950 p-6";
 
 export async function CompanySettings() {
   const [company]=await dbSelect<Company>("companies",{select:"*",order:"name.asc",limit:1});
   if(!company)return <p className={`${box} mt-8`}>No hay una empresa registrada.</p>;
-  const [contacts,ciiu,events,documents]=await Promise.all([
+  const [contacts,ciiu,events,documents,[rup]]=await Promise.all([
     dbSelect<Row>("company_contacts",{select:"*",company_id:`eq.${company.id}`}),
     dbSelect<Row>("company_ciiu_codes",{select:"*",company_id:`eq.${company.id}`}),
     dbSelect<Row>("company_tax_calendar",{select:"*",company_id:`eq.${company.id}`,order:"due_date.asc"}),
     dbSelect<Row>("reusable_tender_documents",{select:"id,category,name,file_size,issue_date,valid_until,created_at",company_id:`eq.${company.id}`,order:"created_at.desc"}),
+    dbSelect<Rup>("rup_profiles",{select:"issue_date,valid_until,fiscal_year,current_assets,current_liabilities,total_assets,total_liabilities,equity,operating_profit,interest_expense,net_income,residual_capacity,is_mipyme,domicile,notes",company_id:`eq.${company.id}`}),
   ]);
+  const rupValues: Rup = rup ?? {
+    issue_date:null,valid_until:null,fiscal_year:null,current_assets:0,current_liabilities:0,
+    total_assets:0,total_liabilities:0,equity:0,operating_profit:0,interest_expense:0,
+    net_income:0,residual_capacity:0,is_mipyme:false,domicile:null,notes:null,
+  };
   const v=(key:string)=>String(company[key]??"");
   const fields=[["trade_name","Nombre comercial"],["nit","NIT"],["verification_digit","Dígito de verificación"],["entity_type","Tipo de entidad"],["chamber_registration","Matrícula mercantil"],["address","Dirección"],["city","Ciudad"],["department","Departamento"],["country","País"],["postal_code","Código postal"],["phone","Teléfono"],["mobile","Celular"],["email","Correo corporativo"],["website","Página web"],["legal_representative","Representante legal"],["representative_document","Documento representante"],["tax_regime","Régimen tributario"],["invoice_resolution","Resolución de facturación"]] as const;
   return <>
@@ -42,10 +55,15 @@ export async function CompanySettings() {
     <section className={`${box} mt-6`}>
       <h2 className="text-xl font-bold">Banco documental empresarial</h2>
       <p className="mt-1 text-sm text-zinc-400">Documentos reutilizables para proveedores, clientes y licitaciones.</p>
+      <div className="mt-6 rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+        <h3 className="text-lg font-bold">RUP y perfil de contratación</h3>
+        <p className="mt-1 text-sm text-zinc-400">Sube el RUP aquí. ATLAS guarda el PDF como documento base, extrae la información financiera y la experiencia, y permite corregirla antes de alimentar el radar SECOP.</p>
+        <RupForm companyId={company.id} values={rupValues}/>
+      </div>
       <div className="mt-5 grid gap-6 xl:grid-cols-[380px_1fr]">
         <form action={uploadReusableDocument} className="space-y-3 rounded-xl bg-zinc-900 p-4">
           <input type="hidden" name="company_id" value={company.id}/>
-          <Field label="Tipo"><select name="category" className={input}><option value="CAMARA_COMERCIO">Cámara de Comercio</option><option value="RUT">RUT</option><option value="CEDULA_REPRESENTANTE">Cédula del representante legal</option><option value="DECLARACION_RENTA">Declaración de renta</option><option value="ESTADOS_FINANCIEROS">Estados financieros</option><option value="RUP">RUP</option><option value="CERTIFICACION">Certificación</option><option value="OTRO">Otro</option></select></Field>
+          <Field label="Tipo"><select name="category" className={input}><option value="CAMARA_COMERCIO">Cámara de Comercio</option><option value="RUT">RUT</option><option value="CEDULA_REPRESENTANTE">Cédula del representante legal</option><option value="DECLARACION_RENTA">Declaración de renta</option><option value="ESTADOS_FINANCIEROS">Estados financieros</option><option value="CERTIFICACION">Certificación</option><option value="OTRO">Otro</option></select></Field>
           <Field label="Archivo"><input required type="file" name="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" className={input}/></Field>
           <Field label="Fecha de expedición"><input type="date" name="issue_date" className={input}/></Field>
           <Field label="Vigente hasta"><input type="date" name="valid_until" className={input}/></Field>

@@ -71,6 +71,7 @@ export async function saveRupProfile(data: FormData) {
   }
   revalidatePath("/tenders/profile");
   revalidatePath("/tenders/secop");
+  revalidatePath("/commercial/setup");
 }
 
 export async function createRupExperience(data: FormData) {

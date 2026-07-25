@@ -4,7 +4,6 @@ import { dbSelect } from "@/lib/supabase-rest";
 import { CurrencyInput } from "@/components/currency-input";
 import { Empty, Field, input, Metric, PageTitle, primary, Section } from "../../domain-ui";
 import { createRupExperience, deleteRupExperience } from "./actions";
-import { RupForm } from "./rup-form";
 
 type Company = { id: string; name: string };
 type Rup = {
@@ -71,7 +70,7 @@ export default async function ProcurementProfilePage({ searchParams }: { searchP
 
       <Section title="Información financiera del RUP">
         <p className="mt-2 text-sm text-zinc-500">Carga el certificado para completar los campos automáticamente o modifícalos manualmente antes de guardar.</p>
-        <RupForm companyId={companyId} values={values} />
+        <Link href="/commercial/setup" className={`${primary} mt-4 inline-block`}>Gestionar RUP en la empresa</Link>
       </Section>
 
       <div className="mt-6 grid gap-6 xl:grid-cols-[420px_1fr]">
