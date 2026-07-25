@@ -1,10 +1,17 @@
 import { NextResponse } from "next/server";
-import { PDFParse } from "pdf-parse";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { extractedFieldCount, extractRupFromText } from "@/lib/rup-extractor";
 
 export const runtime = "nodejs";
 const MAX_FILE_SIZE = 15 * 1024 * 1024;
+
+async function loadPdfParser() {
+  const canvas = await import("@napi-rs/canvas");
+  if (!globalThis.DOMMatrix) globalThis.DOMMatrix = canvas.DOMMatrix as typeof DOMMatrix;
+  if (!globalThis.ImageData) globalThis.ImageData = canvas.ImageData as unknown as typeof ImageData;
+  if (!globalThis.Path2D) globalThis.Path2D = canvas.Path2D as unknown as typeof Path2D;
+  return import("pdf-parse");
+}
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
@@ -19,6 +26,7 @@ export async function POST(request: Request) {
   }
   if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "El PDF no puede superar 15 MB." }, { status: 400 });
 
+  const { PDFParse } = await loadPdfParser();
   const parser = new PDFParse({ data: new Uint8Array(await file.arrayBuffer()) });
   try {
     const result = await parser.getText();

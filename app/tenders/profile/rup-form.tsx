@@ -45,6 +45,12 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
     payload.set("file", file);
     try {
       const response = await fetch("/api/tenders/rup/extract", { method: "POST", body: payload });
+      const contentType = response.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(response.status === 413
+          ? "El PDF supera el límite de carga de Vercel. Usa un archivo de máximo 4 MB."
+          : "Vercel no pudo procesar el PDF. Intenta nuevamente en unos segundos.");
+      }
       const result = await response.json() as { values?: ExtractedRup; found?: number; pages?: number; error?: string };
       if (!response.ok || !result.values) throw new Error(result.error || "No fue posible procesar el PDF.");
       const extracted = result.values;
