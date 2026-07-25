@@ -73,5 +73,48 @@ export function extractCompanyDocument(text: string, category: string) {
     .map((match) => ({ code: match[1], description: clean(match[2]) }))
     .filter((item, index, all) => all.findIndex((other) => other.code === item.code) === index);
 
+  if (category === "RUT") {
+    const lines = text.split("\n").map(clean).filter(Boolean);
+    const identificationLine = lines.find((line) => /Impuestos de/i.test(line) && (line.match(/\d/g)?.length ?? 0) >= 10);
+    const identification = identificationLine?.match(/\d/g)?.join("").slice(0, 10);
+    if (identification?.length === 10) {
+      result.nit = identification.slice(0, 9);
+      result.verification_digit = identification.slice(9);
+    }
+    const legalIndex = lines.findIndex((line) => /^Persona jur[ií]dica\b/i.test(line));
+    if (legalIndex >= 0) {
+      result.entity_type = "Persona jurídica";
+      if (lines[legalIndex + 1]) result.legal_name = lines[legalIndex + 1];
+      if (lines[legalIndex + 2]) result.trade_name = lines[legalIndex + 2];
+      const location = lines[legalIndex + 3] || "";
+      const department = location.match(/COLOMBIA(?:\s+\d+)+\s+([A-Za-zÁÉÍÓÚÑáéíóúñ ]+?)(?:\s+\d+)+\s+([A-Za-zÁÉÍÓÚÑáéíóúñ ]+?)(?:\s+\d+)*$/i);
+      if (department) {
+        result.department = clean(department[1]);
+        result.city = clean(department[2]);
+      }
+      if (lines[legalIndex + 4]) result.address = lines[legalIndex + 4];
+      if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lines[legalIndex + 5] || "")) result.email = lines[legalIndex + 5];
+      const activityDigits = (lines[legalIndex + 7] || "").replace(/\D/g, "");
+      const activityCodes = [
+        activityDigits.slice(0, 4),
+        activityDigits.slice(12, 16),
+        activityDigits.slice(24, 28),
+        activityDigits.slice(28, 32),
+      ].filter((code) => /^\d{4}$/.test(code));
+      for (const code of activityCodes) {
+        if (!ciiu.some((item) => item.code === code)) ciiu.push({ code, description: "" });
+      }
+    }
+    const representative = text.match(/\n([A-ZÁÉÍÓÚÑ ]{8,})\nRepresentante legal Certificado/i)?.[1];
+    if (representative) result.legal_representative = clean(representative);
+    const rutResponsibilities = [...text.matchAll(/\n(\d{2})\s*-\s*([^\n]+)/g)]
+      .filter((match) => ["47", "48", "52"].includes(match[1]))
+      .map((match) => `${match[1]} - ${clean(match[2])}`);
+    if (rutResponsibilities.length) {
+      result.tax_responsibilities = [...new Set(rutResponsibilities)].join("\n");
+      result.tax_regime = rutResponsibilities.find((item) => item.startsWith("47 -")) || result.tax_regime;
+    }
+  }
+
   return { fields: result, ciiu, source: category };
 }
