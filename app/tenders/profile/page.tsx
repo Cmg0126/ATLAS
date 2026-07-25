@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import { dbSelect } from "@/lib/supabase-rest";
+import { CurrencyInput } from "@/components/currency-input";
 import { Empty, Field, input, Metric, PageTitle, primary, Section } from "../../domain-ui";
 import { createRupExperience, deleteRupExperience } from "./actions";
 import { RupForm } from "./rup-form";
@@ -81,7 +82,7 @@ export default async function ProcurementProfilePage({ searchParams }: { searchP
             <Field label="Entidad contratante"><input required name="client" className={input} /></Field>
             <Field label="Objeto contractual"><textarea required name="contract_object" rows={4} className={input} /></Field>
             <Field label="Fecha de terminación"><input type="date" name="completion_date" className={input} /></Field>
-            <Field label="Valor en pesos"><input type="number" min="0" step="any" name="value_cop" className={input} /></Field>
+            <Field label="Valor en pesos"><CurrencyInput name="value_cop" className={input} required /></Field>
             <Field label="Valor acreditado en SMMLV"><input type="number" min="0" step="any" name="value_smmlv" className={input} /></Field>
             <Field label="Códigos UNSPSC"><textarea name="unspsc_codes" rows={3} className={input} placeholder="43223300&#10;72151500" /></Field>
             <button className={`${primary} w-full`}>Agregar experiencia</button>

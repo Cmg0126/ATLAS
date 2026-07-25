@@ -1,6 +1,7 @@
 import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import { dbSelect } from "@/lib/supabase-rest";
+import { CurrencyInput } from "@/components/currency-input";
 import { Empty, Field, input, Metric, PageTitle, primary, Section } from "../../domain-ui";
 import { importSecopTender, saveSecopProfile, setSecopDecision, syncSecop } from "./actions";
 import { defaultSecopProfile } from "./profile";
@@ -76,8 +77,8 @@ export default async function SecopRadarPage({ searchParams }: { searchParams: P
           <Field label="Modalidades aceptadas"><textarea name="modalities" rows={4} defaultValue={profile.modalities.join("\n")} className={input} placeholder="Licitación pública&#10;Mínima cuantía" /></Field>
           <Field label="Entidades preferidas"><textarea name="preferred_entities" rows={4} defaultValue={profile.preferred_entities.join("\n")} className={input} /></Field>
           <Field label="Entidades excluidas"><textarea name="excluded_entities" rows={4} defaultValue={profile.excluded_entities.join("\n")} className={input} /></Field>
-          <Field label="Valor mínimo"><input type="number" min="0" name="min_value" defaultValue={profile.min_value} className={input} /></Field>
-          <Field label="Valor máximo (0 = sin límite)"><input type="number" min="0" name="max_value" defaultValue={profile.max_value} className={input} /></Field>
+          <Field label="Valor mínimo"><CurrencyInput name="min_value" defaultValue={profile.min_value} className={input} /></Field>
+          <Field label="Valor máximo (0 = sin límite)"><CurrencyInput name="max_value" defaultValue={profile.max_value} className={input} /></Field>
           <Field label="Días mínimos para presentar"><input type="number" min="0" name="minimum_days" defaultValue={profile.minimum_days} className={input} /></Field>
           <div className="flex items-end"><button className={`${primary} w-full`}>Guardar perfil</button></div>
         </form>

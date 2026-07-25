@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { FileText, Upload } from "lucide-react";
 import type { ExtractedRup } from "@/lib/rup-extractor";
+import { CurrencyInput } from "@/components/currency-input";
 import { Field, input, primary } from "../../domain-ui";
 import { saveRupProfile } from "./actions";
 
@@ -72,6 +73,16 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
     onChange: (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => change(key, event.target.value),
   });
 
+  const currency = (key: keyof ExtractedRup, allowNegative = false) => (
+    <CurrencyInput
+      name={key}
+      value={String(form[key])}
+      onValueChange={(value) => change(key, value)}
+      className={input}
+      allowNegative={allowNegative}
+    />
+  );
+
   return <>
     <div className="mt-5 rounded-2xl border border-dashed border-orange-300 bg-orange-50 p-5">
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -96,15 +107,15 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
       <Field label="Vigente hasta"><input type="date" name="valid_until" {...bind("valid_until")} className={input} /></Field>
       <Field label="Año fiscal"><input type="number" name="fiscal_year" min="2000" max="2100" {...bind("fiscal_year")} className={input} /></Field>
       <Field label="Domicilio"><input name="domicile" {...bind("domicile")} className={input} /></Field>
-      <Field label="Activo corriente"><input type="number" step="any" min="0" name="current_assets" {...bind("current_assets")} className={input} /></Field>
-      <Field label="Pasivo corriente"><input type="number" step="any" min="0" name="current_liabilities" {...bind("current_liabilities")} className={input} /></Field>
-      <Field label="Activo total"><input type="number" step="any" min="0" name="total_assets" {...bind("total_assets")} className={input} /></Field>
-      <Field label="Pasivo total"><input type="number" step="any" min="0" name="total_liabilities" {...bind("total_liabilities")} className={input} /></Field>
-      <Field label="Patrimonio"><input type="number" step="any" name="equity" {...bind("equity")} className={input} /></Field>
-      <Field label="Utilidad operacional"><input type="number" step="any" name="operating_profit" {...bind("operating_profit")} className={input} /></Field>
-      <Field label="Gastos de intereses"><input type="number" step="any" min="0" name="interest_expense" {...bind("interest_expense")} className={input} /></Field>
-      <Field label="Utilidad neta"><input type="number" step="any" name="net_income" {...bind("net_income")} className={input} /></Field>
-      <Field label="Capacidad residual"><input type="number" step="any" min="0" name="residual_capacity" {...bind("residual_capacity")} className={input} /></Field>
+      <Field label="Activo corriente">{currency("current_assets")}</Field>
+      <Field label="Pasivo corriente">{currency("current_liabilities")}</Field>
+      <Field label="Activo total">{currency("total_assets")}</Field>
+      <Field label="Pasivo total">{currency("total_liabilities")}</Field>
+      <Field label="Patrimonio">{currency("equity", true)}</Field>
+      <Field label="Utilidad operacional">{currency("operating_profit", true)}</Field>
+      <Field label="Gastos de intereses">{currency("interest_expense")}</Field>
+      <Field label="Utilidad neta">{currency("net_income", true)}</Field>
+      <Field label="Capacidad residual">{currency("residual_capacity")}</Field>
       <label className="flex items-center gap-3 rounded-xl border px-4 py-3"><input type="checkbox" name="is_mipyme"
         checked={form.is_mipyme} onChange={(event) => change("is_mipyme", event.target.checked)} /> Empresa Mipyme</label>
       <div className="md:col-span-2"><Field label="Notas"><textarea name="notes" rows={3} {...bind("notes")} className={input} /></Field></div>
