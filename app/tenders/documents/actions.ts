@@ -48,4 +48,5 @@ export async function uploadReusableDocument(data: FormData) {
     throw new Error(`No fue posible registrar el documento: ${metadataError.message}`);
   }
   revalidatePath("/tenders/documents");
+  revalidatePath("/commercial/setup");
 }
