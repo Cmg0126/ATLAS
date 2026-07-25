@@ -2,6 +2,7 @@ import Link from "next/link";
 import AppShell from "@/components/layout/AppShell";
 import { dbSelect } from "@/lib/supabase-rest";
 import { createQuotation } from "../../actions";
+import { getNextQuotationNumberPreview } from "../../quotation-number";
 import { Field, input } from "../../ui";
 
 type Opportunity = {
@@ -16,10 +17,13 @@ export default async function NewQuotationPage({
   searchParams: Promise<{ opportunity?: string }>;
 }) {
   const { opportunity: selectedOpportunity = "" } = await searchParams;
-  const opportunities = await dbSelect<Opportunity>("opportunities", {
-    select: "id,title,clients(name)",
-    order: "created_at.desc",
-  });
+  const [opportunities, nextQuotationNumber] = await Promise.all([
+    dbSelect<Opportunity>("opportunities", {
+      select: "id,title,clients(name)",
+      order: "created_at.desc",
+    }),
+    getNextQuotationNumberPreview(),
+  ]);
 
   return (
     <AppShell>
@@ -57,8 +61,8 @@ export default async function NewQuotationPage({
             </Field>
             <div className="rounded-xl border border-yellow-300 bg-yellow-50 p-4">
               <p className="text-sm font-semibold text-zinc-700">Número de cotización</p>
-              <p className="mt-2 text-lg font-bold text-zinc-950">Automático: COT-78-261</p>
-              <p className="mt-1 text-xs text-zinc-500">En 2026 inicia en 78; cada año siguiente reinicia en 1.</p>
+              <p className="mt-2 text-lg font-bold text-zinc-950">{nextQuotationNumber}</p>
+              <p className="mt-1 text-xs text-zinc-500">Número estimado; ATLAS lo confirma y reserva al guardar.</p>
             </div>
             <Field label="Válida hasta">
               <input type="date" name="validity_date" className={input} />
