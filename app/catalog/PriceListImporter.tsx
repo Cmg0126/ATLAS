@@ -97,7 +97,12 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
       return;
     }
     setProgress({ value: 100, label: "Importación terminada" });
-    setMessage(`Importación terminada: ${result.imported} precios, ${result.errors} filas con novedad.`);
+    const firstError = Array.isArray(result.errorDetails) && result.errorDetails.length
+      ? ` Primera novedad: fila ${result.errorDetails[0].row}: ${result.errorDetails[0].message}`
+      : "";
+    setMessage(result.failed
+      ? `No se importó ninguna fila.${firstError}`
+      : `Importación terminada: ${result.imported} precios, ${result.errors} filas con novedad.${firstError}`);
     setPreview(null);
     setMapping(null);
     formRef.current.reset();

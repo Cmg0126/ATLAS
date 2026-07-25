@@ -40,6 +40,16 @@ function parseMoney(value: unknown) {
   return Number(raw);
 }
 
+function parseTaxPercent(value: unknown) {
+  if (value === null || value === undefined || String(value).trim() === "") return 19;
+  const raw = typeof value === "number"
+    ? value
+    : Number(String(value).replace("%", "").replace(",", ".").trim());
+  if (!Number.isFinite(raw) || raw < 0) return 19;
+  const percent = raw > 0 && raw <= 1 ? raw * 100 : raw;
+  return percent <= 100 ? percent : 19;
+}
+
 function csvRows(text: string) {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
   const delimiter = (firstLine.match(/;/g)?.length ?? 0) > (firstLine.match(/,/g)?.length ?? 0) ? ";" : ",";
@@ -147,7 +157,7 @@ export async function POST(request: Request) {
         brand: String(get("brand") ?? "").trim(),
         model: String(get("model") ?? "").trim(),
         unit: String(get("unit") ?? "").trim() || "UND",
-        taxPercent: Number(String(get("tax") ?? "19").replace(",", ".")) || 19,
+        taxPercent: parseTaxPercent(get("tax")),
       };
     });
 
@@ -233,7 +243,12 @@ export async function POST(request: Request) {
       level: "info", message: "catalog_import_completed", requestId, imported,
       errors: errors.length, classificationMode, durationMs: Date.now() - startedAt,
     }));
-    return NextResponse.json({ imported, errors: errors.length });
+    return NextResponse.json({
+      imported,
+      errors: errors.length,
+      errorDetails: errors.slice(0, 10),
+      failed: errors.length === dataRows.length,
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(JSON.stringify({ level: "error", message: "catalog_import_failed", requestId, error: message, durationMs: Date.now() - startedAt }));
