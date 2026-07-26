@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Asistente ATLAS</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<main>
+  <header><span>ATLAS</span><h1>Capturar producto</h1><p>Abre un producto de Sonepar, revisa los datos y envíalo al catálogo.</p></header>
+  <div id="message" class="message" hidden></div>
+  <form id="capture-form">
+    <label>Código<input id="code" required></label>
+    <label>Referencia / modelo<input id="model"></label>
+    <label>Marca<input id="brand"></label>
+    <label>Descripción<textarea id="description" required rows="4"></textarea></label>
+    <div class="row"><label>Precio sin IVA<input id="price" inputmode="decimal" required></label><label>Unidad<input id="unit" value="UND"></label></div>
+    <button id="send" type="submit">Revisar y guardar en ATLAS</button>
+  </form>
+  <small>El asistente no lee ni comparte tu usuario o contraseña.</small>
+</main>
+<script src="popup.js"></script>
+</body>
+</html>

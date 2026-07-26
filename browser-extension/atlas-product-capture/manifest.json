@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Asistente de productos ATLAS",
+  "version": "1.0.0",
+  "description": "Captura productos de Sonepar Colombia y los envía al catálogo de ATLAS.",
+  "permissions": ["activeTab", "scripting", "tabs"],
+  "host_permissions": ["https://tienda.sonepar.co/*", "https://atlas-theta-plum.vercel.app/*"],
+  "action": {
+    "default_title": "Enviar producto a ATLAS",
+    "default_popup": "popup.html"
+  }
+}

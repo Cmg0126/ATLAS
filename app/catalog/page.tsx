@@ -55,7 +55,10 @@ export default async function CatalogPage() {
   return <AppShell>
     <div className="flex flex-wrap items-start justify-between gap-4">
       <PageTitle domain="Abastecimiento" title="Catálogo técnico y precios" description="Productos clasificados por sistemas ITLATAM, con precios históricos de proveedores." />
-      <Link href="/catalog/settings" className={primary}>Configurar sistemas y categorías</Link>
+      <div className="flex flex-wrap gap-3">
+        <a href="/atlas-product-capture.zip" download className="rounded-xl bg-yellow-400 px-5 py-3 font-semibold text-black">Descargar asistente de Chrome</a>
+        <Link href="/catalog/settings" className={primary}>Configurar sistemas y categorías</Link>
+      </div>
     </div>
     <div className="mt-7 grid gap-4 md:grid-cols-4">
       <Metric label="Productos" value={String(products.length)} />
