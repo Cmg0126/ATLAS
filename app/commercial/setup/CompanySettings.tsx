@@ -47,11 +47,23 @@ export async function CompanySettings() {
       <Field label="Fecha de constitución"><input type="date" name="incorporation_date" defaultValue={v("incorporation_date")} className={input}/></Field>
       <Field label="Fecha de matrícula"><input type="date" name="chamber_registration_date" defaultValue={v("chamber_registration_date")} className={input}/></Field>
       <Field label="Última renovación"><input type="date" name="chamber_renewal_date" defaultValue={v("chamber_renewal_date")} className={input}/></Field>
+      <Field label="Último año renovado"><input type="number" name="chamber_last_renewed_year" defaultValue={v("chamber_last_renewed_year")} className={input}/></Field>
+      <Field label="Grupo NIIF"><input name="niif_group" defaultValue={v("niif_group")} className={input}/></Field>
       <div id="impuestos-iva" className="scroll-mt-6"><Field label="IVA general (%)"><input type="number" min="0" max="100" step=".01" name="default_tax_percent" defaultValue={v("default_tax_percent")||"19"} className={input}/></Field></div>
       <Field label="Capital social"><input type="number" min="0" name="social_capital" defaultValue={v("social_capital")||"0"} className={input}/></Field>
       <Field label="Capital autorizado"><input type="number" min="0" name="authorized_capital" defaultValue={v("authorized_capital")||"0"} className={input}/></Field>
       <Field label="Capital suscrito"><input type="number" min="0" name="subscribed_capital" defaultValue={v("subscribed_capital")||"0"} className={input}/></Field>
       <Field label="Capital pagado"><input type="number" min="0" name="paid_in_capital" defaultValue={v("paid_in_capital")||"0"} className={input}/></Field>
+      <Field label="Acciones autorizadas"><input type="number" min="0" name="authorized_shares" defaultValue={v("authorized_shares")||"0"} className={input}/></Field>
+      <Field label="Acciones suscritas"><input type="number" min="0" name="subscribed_shares" defaultValue={v("subscribed_shares")||"0"} className={input}/></Field>
+      <Field label="Acciones pagadas"><input type="number" min="0" name="paid_shares" defaultValue={v("paid_shares")||"0"} className={input}/></Field>
+      <Field label="Valor nominal por acción"><input type="number" min="0" name="nominal_share_value" defaultValue={v("nominal_share_value")||"0"} className={input}/></Field>
+      <Field label="Tamaño empresarial"><input name="company_size" defaultValue={v("company_size")} className={input}/></Field>
+      <Field label="Ingresos ordinarios"><input type="number" min="0" name="ordinary_income" defaultValue={v("ordinary_income")||"0"} className={input}/></Field>
+      <Field label="Representante legal suplente"><input name="alternate_legal_representative" defaultValue={v("alternate_legal_representative")} className={input}/></Field>
+      <Field label="Documento del suplente"><input name="alternate_representative_document" defaultValue={v("alternate_representative_document")} className={input}/></Field>
+      <div className="md:col-span-2 xl:col-span-4"><Field label="Objeto social"><textarea rows={8} name="corporate_purpose" defaultValue={v("corporate_purpose")} className={input}/></Field></div>
+      <div className="md:col-span-2 xl:col-span-4"><Field label="Situación de control"><textarea rows={3} name="control_situation" defaultValue={v("control_situation")} className={input}/></Field></div>
       <Field label="Responsabilidades tributarias"><textarea name="tax_responsibilities" defaultValue={v("tax_responsibilities")} className={input}/></Field>
       <label className="flex items-center gap-2"><input type="checkbox" name="withholding_agent" defaultChecked={Boolean(company.withholding_agent)}/>Agente retenedor</label>
       <label className="flex items-center gap-2"><input type="checkbox" name="industry_commerce_taxpayer" defaultChecked={Boolean(company.industry_commerce_taxpayer)}/>Responsable de ICA</label>

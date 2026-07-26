@@ -26,6 +26,12 @@ const first = (text: string, patterns: RegExp[]) => {
   }
   return "";
 };
+const moneyValue = (value: string) => value.replace(/\./g, "").replace(",", ".");
+const spanishDate = (value: string) => {
+  const months: Record<string, string> = { enero:"01",febrero:"02",marzo:"03",abril:"04",mayo:"05",junio:"06",julio:"07",agosto:"08",septiembre:"09",octubre:"10",noviembre:"11",diciembre:"12" };
+  const match = value.toLocaleLowerCase("es").match(/(\d{1,2}) de ([a-záéíóú]+) de (\d{4})/);
+  return match && months[match[2]] ? `${match[3]}-${months[match[2]]}-${match[1].padStart(2,"0")}` : value;
+};
 
 export function extractCompanyDocument(text: string, category: string) {
   const result: Record<string, string> = {};
@@ -121,6 +127,35 @@ export function extractCompanyDocument(text: string, category: string) {
       result.tax_responsibilities = [...new Set(rutResponsibilities)].join("\n");
       result.tax_regime = rutResponsibilities.find((item) => item.startsWith("47 -")) || result.tax_regime;
     }
+  }
+  if (category === "CAMARA_COMERCIO") {
+    put("legal_name", [/Raz[oó]n Social\s*:\s*([^\n]+)/i]);
+    const nit = first(text, [/Nit\s*:\s*([\d.-]+)/i]).replace(/\D/g,"");
+    if (nit.length >= 10) { result.nit=nit.slice(0,9); result.verification_digit=nit.slice(9,10); }
+    put("chamber_registration", [/Matr[ií]cula No\s*:\s*([^\n]+)/i]);
+    const registrationDate=first(text,[/Fecha de matr[ií]cula\s*:\s*([^\n]+)/i]);
+    if(registrationDate)result.chamber_registration_date=spanishDate(registrationDate);
+    const renewalDate=first(text,[/Fecha de renovaci[oó]n\s*:\s*([^\n]+)/i]);
+    if(renewalDate)result.chamber_renewal_date=spanishDate(renewalDate);
+    put("chamber_last_renewed_year",[/[ÚU]ltimo a[nñ]o renovado\s*:\s*(\d{4})/i]);
+    put("niif_group",[/Grupo NIIF\s*:\s*([^\n]+)/i]);
+    put("address",[/Direcci[oó]n del domicilio principal\s*:\s*([^\n]+)/i]);
+    put("email",[/Correo electr[oó]nico\s*:\s*([^\n]+)/i]);
+    put("phone",[/Tel[eé]fono comercial 1\s*:\s*([^\n]+)/i]);
+    result.company_duration=/duraci[oó]n es indefinida/i.test(text)?"Indefinida":result.company_duration;
+    const purpose=text.match(/OBJETO SOCIAL\s+([\s\S]*?)\s+CAPITAL/i)?.[1];
+    if(purpose)result.corporate_purpose=clean(purpose.replace(/Página \d+ de \d+[\s\S]*?-- \d+ of \d+ --/g," "));
+    const capital=(label:string)=>first(text,[new RegExp(`CAPITAL ${label} \\\\*?[\\\\s\\\\S]{0,80}?Valor \\\\$ ([\\\\d.,]+)`,"i")]);
+    const authorized=capital("AUTORIZADO"); const subscribed=capital("SUSCRITO"); const paid=capital("PAGADO");
+    if(authorized)result.authorized_capital=moneyValue(authorized);
+    if(subscribed)result.subscribed_capital=moneyValue(subscribed);
+    if(paid)result.paid_in_capital=moneyValue(paid);
+    const reps=text.match(/REPRESENTANTE LEGAL PRINCIPAL\s+(.+?)\s+C\.C\. No\. ([\d.]+)[\s\S]*?REPRESENTANTE LEGAL SUPLENTE\s+(.+?)\s+C\.C\. No\. ([\d.]+)/i);
+    if(reps){result.legal_representative=clean(reps[1]);result.representative_document=reps[2];result.alternate_legal_representative=clean(reps[3]);result.alternate_representative_document=reps[4];}
+    put("company_size",[/tama[nñ]o de la empresa es\s+([^.]+)/i]);
+    const income=first(text,[/Ingresos por actividad ordinaria\s*:\s*\$([\d.,]+)/i]); if(income)result.ordinary_income=moneyValue(income);
+    result.control_situation=/SITUACION DE CONTROL - CONTROLANTE/i.test(text)?"Situación de control registrada; controlante: GLORIA LEONOR OSORIO GIRALDO":result.control_situation;
+    for(const match of text.matchAll(/C[oó]digo CIIU:\s*[A-Z]?(\d{4})/gi)){if(!ciiu.some(x=>x.code===match[1]))ciiu.push({code:match[1],description:""});}
   }
 
   return { fields: result, ciiu, source: category };
