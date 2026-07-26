@@ -36,12 +36,19 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
   const operatingProfit = Number(form.operating_profit) || 0;
   const equity = Number(form.equity) || 0;
   const totalAssets = Number(form.total_assets) || 0;
+  const currentAssets = Number(form.current_assets) || 0;
+  const currentLiabilities = Number(form.current_liabilities) || 0;
+  const totalLiabilities = Number(form.total_liabilities) || 0;
+  const liquidity = currentLiabilities > 0 ? currentAssets / currentLiabilities : null;
+  const indebtedness = totalAssets > 0 ? totalLiabilities / totalAssets : null;
   const roe = equity > 0 ? operatingProfit / equity : null;
   const roa = totalAssets > 0 ? operatingProfit / totalAssets : null;
   const showProfitability = (value: number | null) =>
     value === null
       ? "Pendiente"
       : `${value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} (${(value * 100).toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %)`;
+  const showIndex = (value: number | null) =>
+    value === null ? "Pendiente" : value.toLocaleString("es-CO", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
   const change = (key: keyof ExtractedRup, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -116,7 +123,17 @@ export function RupForm({ companyId, values }: { companyId: string; values: RupV
       {error && <p role="alert" className="mt-3 rounded-xl bg-red-100 px-4 py-3 text-sm font-semibold text-red-800">{error}</p>}
     </div>
 
-    <div className="mt-5 grid gap-4 md:grid-cols-2">
+    <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+        <p className="text-sm text-zinc-400">Índice de liquidez</p>
+        <p className="mt-2 text-xl font-bold text-yellow-500">{showIndex(liquidity)}</p>
+        <p className="mt-2 text-xs text-zinc-500">Activo corriente ÷ Pasivo corriente</p>
+      </div>
+      <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
+        <p className="text-sm text-zinc-400">Índice de endeudamiento</p>
+        <p className="mt-2 text-xl font-bold text-yellow-500">{showProfitability(indebtedness)}</p>
+        <p className="mt-2 text-xs text-zinc-500">Pasivo total ÷ Activo total</p>
+      </div>
       <div className="rounded-2xl border border-zinc-700 bg-zinc-900 p-5">
         <p className="text-sm text-zinc-400">Rentabilidad del patrimonio</p>
         <p className="mt-2 text-xl font-bold text-yellow-500">{showProfitability(roe)}</p>

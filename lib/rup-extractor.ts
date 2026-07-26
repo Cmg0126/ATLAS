@@ -76,7 +76,11 @@ export function extractRupFromText(rawText: string): ExtractedRup {
     total_assets: capture(source, ["activo total", "total activo"]),
     total_liabilities: capture(source, ["pasivo total", "total pasivo"]),
     equity: capture(source, ["patrimonio"]),
-    operating_profit: capture(source, ["utilidad operacional", "utilidad operativa"]),
+    operating_profit: capture(source, [
+      "utilidad\\s*[/\\\\-]\\s*p[eé]rdida operacional",
+      "utilidad operacional",
+      "utilidad operativa",
+    ]),
     interest_expense: capture(source, ["gastos de intereses", "gasto de intereses"]),
     net_income: capture(source, ["utilidad neta"]),
     residual_capacity: capture(source, ["capacidad residual de contrataci[oó]n", "capacidad residual"]),
