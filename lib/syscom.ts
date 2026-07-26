@@ -108,9 +108,8 @@ function responseShape(value: unknown, depth = 0): unknown {
 export async function searchSyscomProducts(query: string) {
   const token = await getToken();
   const url = new URL(`${API_URL}/productos`);
-  url.searchParams.set("busqueda", query.trim().replace(/\s+/g, "+"));
-  url.searchParams.set("cop", "true");
-  url.searchParams.set("stock", "true");
+  url.searchParams.set("busqueda", query.trim());
+  url.searchParams.set("cop", "1");
   url.searchParams.set("orden", "relevancia");
   url.searchParams.set("pagina", "1");
   const response = await fetch(url, {
