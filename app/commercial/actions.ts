@@ -238,12 +238,22 @@ async function recalculateQuotation(quotationId: string) {
 export async function createQuotationItem(formData: FormData) {
   const quotationId = required(formData, "quotation_id", "La cotización");
   const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  const productId = nullable(text(formData, "product_id"));
+  let description = required(formData, "description", "La descripción");
+  if (productId) {
+    const [catalogProduct] = await dbSelect<{ name: string }>("catalog_products", {
+      select: "name",
+      id: `eq.${productId}`,
+      limit: 1,
+    });
+    if (catalogProduct?.name) description = catalogProduct.name;
+  }
   await dbInsert("quotation_items", {
     quotation_id: quotationId,
-    product_id: nullable(text(formData, "product_id")),
+    product_id: productId,
     supplier_price_id: nullable(text(formData, "supplier_price_id")),
     reference_cost: amount(text(formData, "reference_cost")),
-    description: required(formData, "description", "La descripción"),
+    description,
     unit: text(formData, "unit") || "UND",
     quantity: amount(required(formData, "quantity", "La cantidad")),
     unit_price: amount(required(formData, "unit_price", "El precio unitario")),

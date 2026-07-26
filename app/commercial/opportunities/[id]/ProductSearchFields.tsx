@@ -34,6 +34,33 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
       .filter((supplierPrice) => supplierPrice.active)
       .sort((left, right) => new Date(right.created_at).getTime() - new Date(left.created_at).getTime())[0] ?? null;
   const selectedSupplierPrice = selected ? latestActivePrice(selected) : null;
+  const selectProduct = (product: CatalogProduct) => {
+    const supplierPrice = latestActivePrice(product);
+    setSelected(product);
+    setQuery(product.internal_sku || product.model || product.name);
+    setPrice(String(supplierPrice?.unit_price ?? ""));
+    setDescription(product.name);
+    setUnit(product.unit || "UND");
+    setTaxPercent(String(product.tax_percent ?? 19));
+  };
+  const handleQueryChange = (value: string) => {
+    setQuery(value);
+    const normalized = value.toLocaleLowerCase("es").trim();
+    const exactProduct = products.find((product) =>
+      [product.internal_sku, product.model]
+        .filter(Boolean)
+        .some((reference) => reference!.toLocaleLowerCase("es").trim() === normalized)
+    );
+    if (exactProduct) {
+      selectProduct(exactProduct);
+      return;
+    }
+    setSelected(null);
+    setDescription(value);
+    setPrice("");
+    setUnit("UND");
+    setTaxPercent("19");
+  };
   const results = useMemo(() => {
     const search = query.toLocaleLowerCase("es").trim();
     if (!search) return [];
@@ -46,7 +73,7 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
   return <>
     <div className="md:col-span-6">
       <label className="block text-sm font-semibold text-zinc-200">Buscar producto o material
-        <input value={query} onChange={(event) => setQuery(event.target.value)} className={input} placeholder="Código, descripción, marca o referencia" />
+        <input value={query} onChange={(event) => handleQueryChange(event.target.value)} className={input} placeholder="Código, descripción, marca o referencia" />
       </label>
       {!!results.length && <div className="mt-2 grid gap-2 rounded-xl border bg-zinc-950 p-2">
         {results.map((product) => {
@@ -54,14 +81,7 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
           return <button
             key={product.id}
             type="button"
-            onClick={() => {
-              setSelected(product);
-              setQuery([product.brand, product.model, product.name].filter(Boolean).join(" · "));
-              setPrice(String(supplierPrice?.unit_price ?? ""));
-              setDescription(product.name);
-              setUnit(product.unit || "UND");
-              setTaxPercent(String(product.tax_percent ?? 19));
-            }}
+            onClick={() => selectProduct(product)}
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg p-3 text-left hover:bg-zinc-800"
           >
             <span><strong>{product.name}</strong><small className="block text-zinc-500">{[product.internal_sku, product.brand, product.model].filter(Boolean).join(" · ")}</small></span>
@@ -69,7 +89,10 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
           </button>;
         })}
       </div>}
-      {query.trim() && <button
+      {selected && <p className="mt-3 rounded-xl border border-emerald-800 bg-emerald-950/40 px-4 py-3 text-sm text-emerald-300">
+        Producto seleccionado: <strong>{selected.name}</strong>
+      </p>}
+      {query.trim() && !selected && <button
         type="button"
         onClick={() => {
           setSelected(null);
