@@ -9,6 +9,7 @@ const numeric = (data: FormData, key: string, fallback = 0) => {
   const parsed = Number(value(data, key));
   return Number.isFinite(parsed) ? parsed : fallback;
 };
+const allowedItemTypes = new Set(["EQUIPMENT", "MATERIAL", "LABOR"]);
 
 async function recalculate(apuId: string, companyId: string) {
   const [apu] = await dbSelect<{ administration_percent: number; contingency_percent: number; profit_percent: number; tax_on_profit_percent: number }>("apu_templates", {
@@ -79,17 +80,48 @@ export async function addApuItem(data: FormData) {
     description = product.name;
     unit = product.unit;
     code = product.internal_sku;
-    if (latest) { unitCost = Number(latest.unit_price); supplierPriceId = latest.id; }
+    if (latest) {
+      supplierPriceId = latest.id;
+      if (unitCost <= 0) unitCost = Number(latest.unit_price);
+    }
   }
   if (!description) throw new Error("Selecciona un producto o escribe una descripción.");
+  const itemType = value(data, "item_type") || "MATERIAL";
+  if (!allowedItemTypes.has(itemType)) throw new Error("El grupo del recurso no es válido.");
   const quantity = Math.max(0, numeric(data, "quantity", 1));
-  const performance = Math.max(0.000001, numeric(data, "performance", 1));
-  const waste = Math.min(100, Math.max(0, numeric(data, "waste_percent")));
   await dbInsert("apu_items", {
-    company_id: companyId, apu_id: apuId, item_type: value(data, "item_type") || "MATERIAL",
+    company_id: companyId, apu_id: apuId, item_type: itemType,
     catalog_product_id: productId || null, supplier_price_id: supplierPriceId, code, description, unit,
-    quantity, performance, waste_percent: waste, unit_cost: unitCost,
-    subtotal: quantity / performance * unitCost * (1 + waste / 100), notes: value(data, "notes") || null,
+    quantity, performance: 1, waste_percent: 0, unit_cost: unitCost,
+    subtotal: quantity * unitCost, notes: value(data, "notes") || null,
+  });
+  await recalculate(apuId, companyId);
+  revalidatePath(`/apu/${apuId}`);
+}
+
+export async function updateApuItem(data: FormData) {
+  const apuId = value(data, "apu_id");
+  const companyId = value(data, "company_id");
+  const itemId = value(data, "item_id");
+  const itemType = value(data, "item_type");
+  const description = value(data, "description");
+  if (!allowedItemTypes.has(itemType)) throw new Error("El grupo del recurso no es válido.");
+  if (!description) throw new Error("La descripción es obligatoria.");
+  const quantity = Math.max(0, numeric(data, "quantity", 1));
+  const unitCost = Math.max(0, numeric(data, "unit_cost"));
+  await dbUpdate("apu_items", {
+    id: `eq.${itemId}`, apu_id: `eq.${apuId}`, company_id: `eq.${companyId}`,
+  }, {
+    item_type: itemType,
+    code: value(data, "code") || null,
+    description,
+    unit: value(data, "unit") || "UND",
+    quantity,
+    performance: 1,
+    waste_percent: 0,
+    unit_cost: unitCost,
+    subtotal: quantity * unitCost,
+    updated_at: new Date().toISOString(),
   });
   await recalculate(apuId, companyId);
   revalidatePath(`/apu/${apuId}`);
