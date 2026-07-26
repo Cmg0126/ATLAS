@@ -27,6 +27,9 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<CatalogProduct | null>(null);
   const [price, setPrice] = useState("");
+  const [description, setDescription] = useState("");
+  const [unit, setUnit] = useState("UND");
+  const [taxPercent, setTaxPercent] = useState("19");
   const latestActivePrice = (product: CatalogProduct) =>
     product.supplier_prices
       .filter((supplierPrice) => supplierPrice.active)
@@ -56,6 +59,9 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
               setSelected(product);
               setQuery([product.brand, product.model, product.name].filter(Boolean).join(" · "));
               setPrice(String(supplierPrice?.unit_price ?? ""));
+              setDescription(product.name);
+              setUnit(product.unit || "UND");
+              setTaxPercent(String(product.tax_percent ?? 19));
             }}
             className="flex flex-wrap items-center justify-between gap-3 rounded-lg p-3 text-left hover:bg-zinc-800"
           >
@@ -64,15 +70,42 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
           </button>;
         })}
       </div>}
+      {query.trim() && <button
+        type="button"
+        onClick={() => {
+          setSelected(null);
+          setDescription(query.trim());
+          setUnit("UND");
+          setPrice("");
+          setTaxPercent("19");
+        }}
+        className="mt-3 rounded-xl border border-yellow-500 px-4 py-2 text-sm font-semibold text-yellow-400"
+      >
+        Usar “{query.trim()}” como servicio o producto libre
+      </button>}
+      {selected && <button
+        type="button"
+        onClick={() => {
+          setSelected(null);
+          setQuery("");
+          setDescription("");
+          setUnit("UND");
+          setPrice("");
+          setTaxPercent("19");
+        }}
+        className="mt-3 ml-2 rounded-xl border border-zinc-700 px-4 py-2 text-sm text-zinc-300"
+      >
+        Cambiar a concepto libre
+      </button>}
     </div>
     <input type="hidden" name="product_id" value={selected?.id || ""} />
     <input type="hidden" name="supplier_price_id" value={selectedSupplierPrice?.id || ""} />
     <input type="hidden" name="reference_cost" value={selectedSupplierPrice?.unit_price || ""} />
-    <Field label="Descripción"><input name="description" required className={input} defaultValue={selected?.name || ""} key={`description-${selected?.id || "manual"}`} /></Field>
-    <Field label="Unidad"><input name="unit" required className={input} defaultValue={selected?.unit || "UND"} key={`unit-${selected?.id || "manual"}`} /></Field>
+    <Field label="Descripción"><input name="description" required className={input} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Escribe el servicio, actividad o producto" /></Field>
+    <Field label="Unidad"><input name="unit" required className={input} value={unit} onChange={(event) => setUnit(event.target.value)} /></Field>
     <Field label="Cantidad"><input type="number" name="quantity" min="0.01" step="0.01" defaultValue="1" required className={input} /></Field>
     <Field label="Precio de venta"><CurrencyInput name="unit_price" value={price} onValueChange={setPrice} required className={input} /></Field>
     <Field label="Descuento %"><input type="number" name="discount_percent" min="0" max="100" step="0.01" defaultValue="0" className={input} /></Field>
-    <Field label="IVA %"><input type="number" name="tax_percent" min="0" max="100" step="0.01" defaultValue={selected?.tax_percent ?? 19} key={`tax-${selected?.id || "manual"}`} className={input} /></Field>
+    <Field label="IVA %"><input type="number" name="tax_percent" min="0" max="100" step="0.01" value={taxPercent} onChange={(event) => setTaxPercent(event.target.value)} className={input} /></Field>
   </>;
 }
