@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { TaxonomyFields, type TaxonomySystemOption } from "./TaxonomyFields";
 
 type Option = { id: string; name: string };
-type MappingKey = "sku" | "name" | "brand" | "model" | "unit" | "price";
+type MappingKey = "sku" | "name" | "brand" | "model" | "unit" | "price" | "system" | "category" | "subcategory";
 type Mapping = Record<MappingKey, number>;
 type Preview = {
   headerIndex: number;
@@ -20,6 +20,9 @@ const fields: { key: MappingKey; label: string; required?: boolean }[] = [
   { key: "model", label: "Modelo / referencia" },
   { key: "unit", label: "Unidad" },
   { key: "price", label: "Precio", required: true },
+  { key: "system", label: "Sistema" },
+  { key: "category", label: "Categoría" },
+  { key: "subcategory", label: "Subcategoría" },
 ];
 
 async function readResponse(response: Response) {
@@ -127,11 +130,14 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
         </label>
         <fieldset className="rounded-xl border border-zinc-800 bg-zinc-900 p-4">
           <legend className="px-2 text-sm font-semibold text-zinc-200">Método de clasificación</legend>
-          <label className="flex gap-3 py-2 text-sm text-zinc-200"><input type="radio" name="classification_mode" value="BLOCK" checked={classificationMode === "BLOCK"} onChange={() => setClassificationMode("BLOCK")} />Aplicar una clasificación a todo el bloque</label>
+          <label className="flex gap-3 py-2 text-sm text-zinc-200"><input type="radio" name="classification_mode" value="BLOCK" checked={classificationMode === "BLOCK"} onChange={() => setClassificationMode("BLOCK")} />Usar columnas del archivo o una clasificación opcional para todo el bloque</label>
           <label className="flex gap-3 py-2 text-sm text-zinc-200"><input type="radio" name="classification_mode" value="AI" checked={classificationMode === "AI"} onChange={() => setClassificationMode("AI")} />Motor ITLATAM: analizar referencia y descripción</label>
         </fieldset>
         {classificationMode === "BLOCK"
-          ? <div className="grid gap-4"><TaxonomyFields systems={systems} required /></div>
+          ? <div className="grid gap-4">
+              <p className="rounded-xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-300">En la siguiente ventana puedes emparejar Sistema, Categoría y Subcategoría. Si el archivo no las trae, deja esta clasificación vacía y los productos se importarán como pendientes.</p>
+              <TaxonomyFields systems={systems} />
+            </div>
           : <p className="rounded-xl border border-yellow-900 bg-yellow-950/30 p-4 text-sm text-yellow-200">La IA completará únicamente clasificaciones confiables. Los productos dudosos quedarán en la bandeja de pendientes para que los corrijas después.</p>}
         <p className="text-xs text-zinc-500">ATLAS mostrará una vista previa para que emparejes las columnas antes de guardar.</p>
         <button type="button" disabled={busy} onClick={requestPreview} className="w-full rounded-xl bg-yellow-500 px-5 py-3 font-semibold text-black disabled:opacity-50">
@@ -152,7 +158,7 @@ export function PriceListImporter({ companies, suppliers, systems }: { companies
               <button type="button" onClick={() => { setPreview(null); setMapping(null); setMessage(""); }} className="rounded-lg border border-zinc-700 px-3 py-2 text-zinc-300 hover:bg-zinc-800">Cerrar</button>
             </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {fields.map((field) => (
                 <label key={field.key} className="text-sm font-semibold text-zinc-200">
                   {field.label}{field.required && <span className="text-yellow-500"> *</span>}

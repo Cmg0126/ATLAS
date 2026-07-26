@@ -13,6 +13,9 @@ const aliases = {
   model: ["modelo", "referencia fabricante", "modelo referencia"],
   unit: ["unidad", "und", "u.m.", "um"],
   price: ["precio", "precio unitario", "valor", "costo", "precio distribuidor", "precio neto"],
+  system: ["sistema", "linea", "línea", "sistema atlas"],
+  category: ["categoria", "categoría", "familia", "categoria atlas", "categoría atlas"],
+  subcategory: ["subcategoria", "subcategoría", "subfamilia", "subcategoria atlas", "subcategoría atlas"],
 } as const;
 
 const normalize = (value: unknown) =>
@@ -124,10 +127,8 @@ export async function POST(request: Request) {
       })) as Record<keyof typeof aliases, number>;
     }
     if (columns.name < 0 || columns.price < 0) return NextResponse.json({ error: "Debes emparejar las columnas Descripción y Precio." }, { status: 400 });
-    if (classificationMode === "BLOCK" && (!selectedSystemId || !selectedCategoryId || !selectedSubcategoryId)) {
-      return NextResponse.json({ error: "Selecciona Sistema, Categoría y Subcategoría para importar por bloque." }, { status: 400 });
-    }
-    if (classificationMode === "BLOCK") {
+    const hasSelectedPath = Boolean(selectedSystemId && selectedCategoryId && selectedSubcategoryId);
+    if (classificationMode === "BLOCK" && hasSelectedPath) {
       const { data: selectedPath } = await supabase.from("product_subcategories")
         .select("id,category_id,product_categories(system_id)")
         .eq("id", selectedSubcategoryId!)
@@ -152,21 +153,54 @@ export async function POST(request: Request) {
         brand: String(get("brand") ?? "").trim(),
         model: String(get("model") ?? "").trim(),
         unit: String(get("unit") ?? "").trim() || "UND",
+        system: String(get("system") ?? "").trim(),
+        category: String(get("category") ?? "").trim(),
+        subcategory: String(get("subcategory") ?? "").trim(),
         taxPercent: companyTaxPercent,
       };
     });
 
     const classifications = new Map<number, ProductClassification>();
+    const { data: taxonomyData, error: taxonomyError } = await supabase.from("product_systems")
+      .select("id,name,product_categories(id,name,product_subcategories(id,name))")
+      .eq("company_id", companyId).eq("active", true);
+    if (taxonomyError) return NextResponse.json({ error: taxonomyError.message }, { status: 400 });
+
+    if (classificationMode === "BLOCK") {
+      const taxonomy = (taxonomyData ?? []) as TaxonomySystem[];
+      for (const item of parsedRows) {
+        if (hasSelectedPath) {
+          classifications.set(item.rowNumber, {
+            row: item.rowNumber,
+            systemId: selectedSystemId,
+            categoryId: selectedCategoryId,
+            subcategoryId: selectedSubcategoryId,
+            brand: item.brand || null,
+            confidence: 1,
+            status: "AUTOMATIC",
+            source: "RULE",
+          });
+          continue;
+        }
+        const system = taxonomy.find((candidate) => normalize(candidate.name) === normalize(item.system));
+        const category = system?.product_categories.find((candidate) => normalize(candidate.name) === normalize(item.category));
+        const subcategory = category?.product_subcategories.find((candidate) => normalize(candidate.name) === normalize(item.subcategory));
+        classifications.set(item.rowNumber, {
+          row: item.rowNumber,
+          systemId: system?.id ?? null,
+          categoryId: category?.id ?? null,
+          subcategoryId: subcategory?.id ?? null,
+          brand: item.brand || null,
+          confidence: subcategory ? 1 : 0,
+          status: subcategory ? "AUTOMATIC" : "PENDING",
+          source: "RULE",
+        });
+      }
+    }
     if (classificationMode === "AI") {
-      const [{ data: taxonomyData, error: taxonomyError }, { data: learnedRules }] = await Promise.all([
-        supabase.from("product_systems")
-          .select("id,name,product_categories(id,name,product_subcategories(id,name))")
-          .eq("company_id", companyId).eq("active", true),
-        supabase.from("catalog_classification_rules")
-          .select("match_value,system_id,category_id,subcategory_id,confidence")
-          .eq("company_id", companyId).eq("match_type", "BRAND_MODEL").eq("active", true),
-      ]);
-      if (taxonomyError) return NextResponse.json({ error: taxonomyError.message }, { status: 400 });
+      const { data: learnedRules } = await supabase.from("catalog_classification_rules")
+        .select("match_value,system_id,category_id,subcategory_id,confidence")
+        .eq("company_id", companyId).eq("match_type", "BRAND_MODEL").eq("active", true);
       const rules = new Map((learnedRules ?? []).map((rule) => [normalize(String(rule.match_value)), rule]));
       for (const item of parsedRows) {
         const rule = item.brand && item.model ? rules.get(normalize(`${item.brand}|${item.model}`)) : undefined;
@@ -204,9 +238,8 @@ export async function POST(request: Request) {
         errors.push({ row: item.rowNumber, message: "Falta descripción o precio válido." });
         continue;
       }
-      const classification = classificationMode === "BLOCK"
-        ? { systemId: selectedSystemId, categoryId: selectedCategoryId, subcategoryId: selectedSubcategoryId, brand: item.brand || null, confidence: 1, status: "REVIEWED" as const, source: "BLOCK" as const }
-        : classifications.get(item.rowNumber) ?? { systemId: null, categoryId: null, subcategoryId: null, brand: item.brand || null, confidence: 0, status: "PENDING" as const, source: "AI" as const };
+      const classification = classifications.get(item.rowNumber) ??
+        { systemId: null, categoryId: null, subcategoryId: null, brand: item.brand || null, confidence: 0, status: "PENDING" as const, source: "AI" as const };
       const resolvedBrand = item.brand || classification.brand || "";
       const normalizedKey = normalize([resolvedBrand, item.model, item.name].filter(Boolean).join("|"));
       const { data: product, error: productError } = await supabase.from("catalog_products").upsert({
@@ -214,7 +247,7 @@ export async function POST(request: Request) {
         system_id: classification.systemId, category_id: classification.categoryId, subcategory_id: classification.subcategoryId,
         classification_status: classification.status, classification_confidence: classification.confidence,
         classification_source: classification.source, classified_at: classification.subcategoryId ? new Date().toISOString() : null,
-        classified_by: classificationMode === "BLOCK" ? user.id : null,
+        classified_by: classification.subcategoryId ? user.id : null,
         brand: resolvedBrand || null, model: item.model || null, unit: item.unit, tax_percent: item.taxPercent,
         keywords: [item.sku, resolvedBrand, item.model, item.name].filter(Boolean).join(" "),
       }, { onConflict: "company_id,normalized_key" }).select("id").single();
