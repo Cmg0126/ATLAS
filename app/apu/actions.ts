@@ -1,0 +1,122 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { dbDelete, dbInsert, dbSelect, dbUpdate } from "@/lib/supabase-rest";
+
+const value = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
+const numeric = (data: FormData, key: string, fallback = 0) => {
+  const parsed = Number(value(data, key));
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+async function recalculate(apuId: string, companyId: string) {
+  const [apu] = await dbSelect<{ administration_percent: number; contingency_percent: number; profit_percent: number; tax_on_profit_percent: number }>("apu_templates", {
+    select: "administration_percent,contingency_percent,profit_percent,tax_on_profit_percent", id: `eq.${apuId}`, company_id: `eq.${companyId}`, limit: 1,
+  });
+  if (!apu) throw new Error("El APU no existe.");
+  const items = await dbSelect<{ subtotal: number }>("apu_items", { select: "subtotal", apu_id: `eq.${apuId}`, company_id: `eq.${companyId}` });
+  const direct = items.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
+  const administration = direct * Number(apu.administration_percent || 0) / 100;
+  const contingency = direct * Number(apu.contingency_percent || 0) / 100;
+  const profit = direct * Number(apu.profit_percent || 0) / 100;
+  const tax = profit * Number(apu.tax_on_profit_percent || 0) / 100;
+  await dbUpdate("apu_templates", { id: `eq.${apuId}`, company_id: `eq.${companyId}` }, {
+    direct_cost: direct, administration_cost: administration, contingency_cost: contingency,
+    profit_cost: profit, tax_cost: tax, unit_price: direct + administration + contingency + profit + tax,
+    updated_at: new Date().toISOString(),
+  });
+}
+
+export async function createApu(data: FormData) {
+  const companyId = value(data, "company_id");
+  const code = value(data, "code");
+  const name = value(data, "name");
+  if (!companyId || !code || !name) throw new Error("Empresa, código y nombre son obligatorios.");
+  const apu = await dbInsert<{ id: string }>("apu_templates", {
+    company_id: companyId, code, name, description: value(data, "description") || null,
+    unit: value(data, "unit") || "UND", status: "DRAFT",
+    administration_percent: numeric(data, "administration_percent"),
+    contingency_percent: numeric(data, "contingency_percent"),
+    profit_percent: numeric(data, "profit_percent"),
+    tax_on_profit_percent: numeric(data, "tax_on_profit_percent", 19),
+  });
+  redirect(`/apu/${apu.id}`);
+}
+
+export async function updateApu(data: FormData) {
+  const apuId = value(data, "apu_id");
+  const companyId = value(data, "company_id");
+  await dbUpdate("apu_templates", { id: `eq.${apuId}`, company_id: `eq.${companyId}` }, {
+    name: value(data, "name"), description: value(data, "description") || null,
+    unit: value(data, "unit") || "UND", status: value(data, "status") || "DRAFT",
+    administration_percent: numeric(data, "administration_percent"),
+    contingency_percent: numeric(data, "contingency_percent"),
+    profit_percent: numeric(data, "profit_percent"),
+    tax_on_profit_percent: numeric(data, "tax_on_profit_percent", 19),
+    updated_at: new Date().toISOString(),
+  });
+  await recalculate(apuId, companyId);
+  revalidatePath("/apu");
+  revalidatePath(`/apu/${apuId}`);
+}
+
+export async function addApuItem(data: FormData) {
+  const apuId = value(data, "apu_id");
+  const companyId = value(data, "company_id");
+  const productId = value(data, "catalog_product_id");
+  let description = value(data, "description");
+  let unit = value(data, "unit") || "UND";
+  let unitCost = numeric(data, "unit_cost");
+  let supplierPriceId: string | null = null;
+  let code = value(data, "code") || null;
+  if (productId) {
+    const [product] = await dbSelect<{ internal_sku: string | null; name: string; unit: string; supplier_prices: { id: string; unit_price: number; active: boolean; created_at: string }[] }>("catalog_products", {
+      select: "internal_sku,name,unit,supplier_prices(id,unit_price,active,created_at)", id: `eq.${productId}`, company_id: `eq.${companyId}`, limit: 1,
+    });
+    if (!product) throw new Error("El producto no pertenece a la empresa.");
+    const latest = (product.supplier_prices || []).filter((price) => price.active).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
+    description = product.name;
+    unit = product.unit;
+    code = product.internal_sku;
+    if (latest) { unitCost = Number(latest.unit_price); supplierPriceId = latest.id; }
+  }
+  if (!description) throw new Error("Selecciona un producto o escribe una descripción.");
+  const quantity = Math.max(0, numeric(data, "quantity", 1));
+  const performance = Math.max(0.000001, numeric(data, "performance", 1));
+  const waste = Math.min(100, Math.max(0, numeric(data, "waste_percent")));
+  await dbInsert("apu_items", {
+    company_id: companyId, apu_id: apuId, item_type: value(data, "item_type") || "MATERIAL",
+    catalog_product_id: productId || null, supplier_price_id: supplierPriceId, code, description, unit,
+    quantity, performance, waste_percent: waste, unit_cost: unitCost,
+    subtotal: quantity / performance * unitCost * (1 + waste / 100), notes: value(data, "notes") || null,
+  });
+  await recalculate(apuId, companyId);
+  revalidatePath(`/apu/${apuId}`);
+}
+
+export async function deleteApuItem(data: FormData) {
+  const apuId = value(data, "apu_id");
+  const companyId = value(data, "company_id");
+  await dbDelete("apu_items", { id: `eq.${value(data, "item_id")}`, apu_id: `eq.${apuId}`, company_id: `eq.${companyId}` });
+  await recalculate(apuId, companyId);
+  revalidatePath(`/apu/${apuId}`);
+}
+
+export async function duplicateApu(data: FormData) {
+  const apuId = value(data, "apu_id");
+  const companyId = value(data, "company_id");
+  const [source] = await dbSelect<Record<string, unknown>>("apu_templates", { select: "*", id: `eq.${apuId}`, company_id: `eq.${companyId}`, limit: 1 });
+  if (!source) throw new Error("El APU no existe.");
+  const versions = await dbSelect<{ version: number }>("apu_templates", { select: "version", company_id: `eq.${companyId}`, code: `eq.${String(source.code)}`, order: "version.desc", limit: 1 });
+  const { id: _id, created_at: _created, updated_at: _updated, ...copy } = source;
+  const duplicated = await dbInsert<{ id: string }>("apu_templates", {
+    ...copy, version: Number(versions[0]?.version || 0) + 1, status: "DRAFT", source_apu_id: apuId,
+  });
+  const items = await dbSelect<Record<string, unknown>>("apu_items", { select: "*", apu_id: `eq.${apuId}`, company_id: `eq.${companyId}` });
+  for (const item of items) {
+    const { id: _itemId, created_at: _itemCreated, updated_at: _itemUpdated, ...itemCopy } = item;
+    await dbInsert("apu_items", { ...itemCopy, apu_id: duplicated.id });
+  }
+  redirect(`/apu/${duplicated.id}`);
+}

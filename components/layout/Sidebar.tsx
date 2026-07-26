@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Briefcase, FolderKanban, ShoppingCart, Warehouse, FileText, Users, Shield, DollarSign, Brain, PackageSearch, Building2 } from "lucide-react";
+import { LayoutDashboard, Briefcase, FolderKanban, ShoppingCart, Warehouse, FileText, Users, Shield, DollarSign, Brain, PackageSearch, Building2, Calculator } from "lucide-react";
 
 const menu = [
   { icon: LayoutDashboard, name: "Dashboard", href: "/" },
@@ -12,6 +12,7 @@ const menu = [
   { icon: FolderKanban, name: "Proyectos", href: "/projects" },
   { icon: FileText, name: "Licitaciones", href: "/tenders" },
   { icon: PackageSearch, name: "Catálogo y precios", href: "/catalog" },
+  { icon: Calculator, name: "APU y presupuestos", href: "/apu" },
   { icon: ShoppingCart, name: "Compras", href: "/purchasing" },
   { icon: Warehouse, name: "Inventario", href: "/inventory" },
   { icon: Users, name: "RRHH", href: "/hr" },
