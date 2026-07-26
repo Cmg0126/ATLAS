@@ -5,6 +5,7 @@ import { Field, input, Metric, PageTitle, primary, Section } from "../domain-ui"
 import { createCatalogProduct, updateProductClassification } from "./actions";
 import { PriceListImporter } from "./PriceListImporter";
 import { ProductClassificationEditor } from "./ProductClassificationEditor";
+import { SyscomConnector } from "./SyscomConnector";
 import { TaxonomyFields, type TaxonomySystemOption } from "./TaxonomyFields";
 
 type Product = {
@@ -63,6 +64,9 @@ export default async function CatalogPage() {
       <Metric label="Proveedores" value={String(suppliers.length)} />
     </div>
     <div className="mt-7 grid gap-6 xl:grid-cols-2">
+      <Section title="Conector SYSCOM Colombia">
+        <SyscomConnector companies={companies} />
+      </Section>
       <Section title="Importar lista de proveedor">
         <PriceListImporter companies={companies} suppliers={suppliers} systems={systems} />
       </Section>
