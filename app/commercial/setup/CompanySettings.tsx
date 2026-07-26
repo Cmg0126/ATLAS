@@ -31,7 +31,7 @@ export async function CompanySettings() {
     net_income:0,residual_capacity:0,is_mipyme:false,domicile:null,notes:null,
   };
   const v=(key:string)=>String(company[key]??"");
-  const fields=[["trade_name","Nombre comercial"],["nit","NIT"],["verification_digit","Dígito de verificación"],["entity_type","Tipo de entidad"],["chamber_registration","Matrícula mercantil"],["address","Dirección"],["city","Ciudad"],["department","Departamento"],["country","País"],["postal_code","Código postal"],["phone","Teléfono"],["mobile","Celular"],["email","Correo corporativo"],["website","Página web"],["legal_representative","Representante legal"],["representative_document","Documento representante"],["tax_regime","Régimen tributario"],["invoice_resolution","Resolución de facturación"]] as const;
+  const fields=[["trade_name","Nombre comercial"],["nit","NIT"],["verification_digit","Dígito de verificación"],["entity_type","Tipo de entidad"],["chamber_of_commerce","Cámara de Comercio"],["chamber_registration","Matrícula mercantil"],["company_duration","Duración de la sociedad"],["address","Dirección"],["city","Ciudad"],["department","Departamento"],["country","País"],["postal_code","Código postal"],["phone","Teléfono"],["mobile","Celular"],["email","Correo corporativo"],["website","Página web"],["legal_representative","Representante legal"],["representative_document","Documento representante"],["tax_regime","Régimen tributario"],["invoice_resolution","Resolución de facturación"]] as const;
   return <>
     <nav className="mt-8 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <a href="#datos-empresa" className="rounded-2xl border border-zinc-700 bg-zinc-900 p-4 font-bold text-white hover:border-yellow-500">1. Datos de la empresa</a>
@@ -45,8 +45,12 @@ export async function CompanySettings() {
       <Field label="Razón social"><input name="legal_name" required defaultValue={v("legal_name")||company.name} className={input}/></Field>
       {fields.map(([key,label])=><Field key={key} label={label}><input name={key} defaultValue={v(key)||(key==="country"?"Colombia":"")} className={input}/></Field>)}
       <Field label="Fecha de constitución"><input type="date" name="incorporation_date" defaultValue={v("incorporation_date")} className={input}/></Field>
+      <Field label="Fecha de matrícula"><input type="date" name="chamber_registration_date" defaultValue={v("chamber_registration_date")} className={input}/></Field>
+      <Field label="Última renovación"><input type="date" name="chamber_renewal_date" defaultValue={v("chamber_renewal_date")} className={input}/></Field>
       <div id="impuestos-iva" className="scroll-mt-6"><Field label="IVA general (%)"><input type="number" min="0" max="100" step=".01" name="default_tax_percent" defaultValue={v("default_tax_percent")||"19"} className={input}/></Field></div>
       <Field label="Capital social"><input type="number" min="0" name="social_capital" defaultValue={v("social_capital")||"0"} className={input}/></Field>
+      <Field label="Capital autorizado"><input type="number" min="0" name="authorized_capital" defaultValue={v("authorized_capital")||"0"} className={input}/></Field>
+      <Field label="Capital suscrito"><input type="number" min="0" name="subscribed_capital" defaultValue={v("subscribed_capital")||"0"} className={input}/></Field>
       <Field label="Capital pagado"><input type="number" min="0" name="paid_in_capital" defaultValue={v("paid_in_capital")||"0"} className={input}/></Field>
       <Field label="Responsabilidades tributarias"><textarea name="tax_responsibilities" defaultValue={v("tax_responsibilities")} className={input}/></Field>
       <label className="flex items-center gap-2"><input type="checkbox" name="withholding_agent" defaultChecked={Boolean(company.withholding_agent)}/>Agente retenedor</label>

@@ -63,6 +63,13 @@ export function extractCompanyDocument(text: string, category: string) {
   put("chamber_registration", [
     /Matr[ií]cula(?: mercantil)?\s*(?:No\.?|N[uú]mero)?\s*:?\s*([\w-]+)/i,
   ]);
+  put("chamber_of_commerce", [/C[aá]mara de Comercio de\s+([^\n]+)/i]);
+  put("company_duration", [/(?:Duraci[oó]n|Vigencia de la sociedad)\s*:?\s*\n?([^\n]+)/i]);
+  put("chamber_registration_date", [/Fecha (?:de )?matr[ií]cula\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/i]);
+  put("chamber_renewal_date", [/(?:Fecha de renovaci[oó]n|[ÚU]ltima renovaci[oó]n)\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{1,2}[\/-]\d{1,2}[\/-]\d{4})/i]);
+  put("authorized_capital", [/Capital autorizado\s*:?\s*\$?\s*([\d.,]+)/i]);
+  put("subscribed_capital", [/Capital suscrito\s*:?\s*\$?\s*([\d.,]+)/i]);
+  put("paid_in_capital", [/Capital pagado\s*:?\s*\$?\s*([\d.,]+)/i]);
   put("tax_regime", [/R[eé]gimen\s*:?\s*\n?([^\n]+)/i]);
 
   const responsibilities = [...text.matchAll(/(?:Responsabilidad|C[oó]digo)\s*:?\s*(\d{2})\s*[-–]\s*([^\n]+)/gi)]
