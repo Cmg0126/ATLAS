@@ -1,70 +1,30 @@
 "use client";
 
-import {
-  LayoutDashboard,
-  Briefcase,
-  FolderKanban,
-  ShoppingCart,
-  Warehouse,
-  FileText,
-  Users,
-  Shield,
-  DollarSign,
-  Brain,
-} from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname } from "next/navigation";
+import { LayoutDashboard, Briefcase, FolderKanban, ShoppingCart, Warehouse, FileText, Users, Shield, DollarSign, Brain, PackageSearch, Building2, Calculator } from "lucide-react";
 
 const menu = [
-  { icon: LayoutDashboard, name: "Dashboard" },
-  { icon: Briefcase, name: "Comercial" },
-  { icon: FolderKanban, name: "Proyectos" },
-  { icon: FileText, name: "Licitaciones" },
-  { icon: ShoppingCart, name: "Compras" },
-  { icon: Warehouse, name: "Inventario" },
-  { icon: Users, name: "RRHH" },
-  { icon: Shield, name: "SST" },
-  { icon: DollarSign, name: "Finanzas" },
-  { icon: Brain, name: "Atlas AI" },
+  { icon: LayoutDashboard, name: "Dashboard", href: "/" },
+  { icon: Briefcase, name: "Comercial", href: "/commercial" },
+  { icon: Building2, name: "Empresa y documentos", href: "/commercial/setup" },
+  { icon: FolderKanban, name: "Proyectos", href: "/projects" },
+  { icon: FileText, name: "Licitaciones", href: "/tenders" },
+  { icon: PackageSearch, name: "Catálogo y precios", href: "/catalog" },
+  { icon: Calculator, name: "APU y presupuestos", href: "/apu" },
+  { icon: ShoppingCart, name: "Compras", href: "/purchasing" },
+  { icon: Warehouse, name: "Inventario", href: "/inventory" },
+  { icon: Users, name: "RRHH", href: "/hr" },
+  { icon: Shield, name: "SST", href: "/sst" },
+  { icon: DollarSign, name: "Finanzas", href: "/finance" },
+  { icon: Brain, name: "Atlas AI", href: "/atlas-ai" },
 ];
 
 export default function Sidebar() {
-  return (
-    <aside className="w-72 bg-zinc-950 text-white flex flex-col">
-
-      <div className="p-6 border-b border-zinc-800">
-
-        <img
-          src="/logo-itlatam.png"
-          className="w-40"
-          alt="logo"
-        />
-
-      </div>
-
-      <div className="p-4 space-y-2">
-
-        {menu.map((item) => {
-
-          const Icon = item.icon;
-
-          return (
-
-            <button
-              key={item.name}
-              className="flex w-full items-center gap-3 rounded-xl px-4 py-3 hover:bg-orange-500 transition"
-            >
-
-              <Icon size={20} />
-
-              {item.name}
-
-            </button>
-
-          );
-
-        })}
-
-      </div>
-
-    </aside>
-  );
+  const pathname = usePathname();
+  return <aside className="flex min-h-screen w-72 shrink-0 flex-col bg-zinc-950 text-white">
+    <div className="border-b border-zinc-800 p-6"><Image src="/logo-itlatam.png" width={160} height={48} style={{ width: 160, height: "auto" }} alt="ITLATAM" priority /></div>
+    <nav className="space-y-2 p-4">{menu.map(item=>{const Icon=item.icon;const active=item.href==="/"?pathname==="/":item.href==="/commercial"?pathname.startsWith("/commercial")&&!pathname.startsWith("/commercial/setup"):pathname.startsWith(item.href);return <Link key={item.name} href={item.href} className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 transition ${active?"bg-orange-500 text-white":"text-zinc-300 hover:bg-zinc-800 hover:text-white"}`}><Icon size={20}/>{item.name}</Link>})}</nav>
+  </aside>;
 }

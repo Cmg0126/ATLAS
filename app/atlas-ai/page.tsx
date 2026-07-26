@@ -1,0 +1,16 @@
+import AppShell from "@/components/layout/AppShell";
+import { dbSelect } from "@/lib/supabase-rest";
+import { createAiDraft } from "../domain-actions";
+import { Empty, Field, input, Metric, PageTitle, primary, Section } from "../domain-ui";
+type Request={id:string;request_type:string;prompt:string;status:string;output:string|null;created_at:string;projects:{name:string}|null};
+export default async function AtlasAiPage(){
+ const [companies,projects,requests]=await Promise.all([
+  dbSelect<{id:string;name:string}>("companies",{select:"id,name"}),dbSelect<{id:string;name:string}>("projects",{select:"id,name",order:"name.asc"}),
+  dbSelect<Request>("ai_requests",{select:"id,request_type,prompt,status,output,created_at,projects(name)",order:"created_at.desc",limit:25})
+ ]);
+ return <AppShell><PageTitle domain="Asistencia documental" title="Atlas AI" description="Centro de borradores técnicos vinculados a proyectos."/>
+  <div className="mt-7 grid gap-4 md:grid-cols-3"><Metric label="Solicitudes" value={String(requests.length)}/><Metric label="Borradores listos" value={String(requests.filter(x=>x.status==="COMPLETED").length)}/><Metric label="Proyectos asistidos" value={String(new Set(requests.map(x=>x.projects?.name).filter(Boolean)).size)}/></div>
+  <div className="mt-7 grid gap-6 xl:grid-cols-[420px_1fr]"><Section title="Nuevo borrador"><form action={createAiDraft} className="mt-5 space-y-4"><Field label="Empresa"><select required name="company_id" className={input}><option value="">Seleccionar</option>{companies.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field><Field label="Proyecto"><select name="project_id" className={input}><option value="">Sin proyecto</option>{projects.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field><Field label="Tipo"><select name="request_type" className={input}><option value="MEMORIA TÉCNICA">Memoria técnica</option><option value="ESPECIFICACIÓN">Especificación</option><option value="INFORME">Informe</option><option value="RFI">RFI</option><option value="ACTA">Acta</option></select></Field><Field label="Instrucciones"><textarea required rows={7} name="prompt" className={input} placeholder="Describe el objetivo, alcance y criterios que debe contener..."/></Field><button className={`${primary} w-full`}>Generar estructura</button></form><p className="mt-3 text-xs text-zinc-500">Esta primera versión genera una estructura documental local. La conexión con un modelo de IA se activará cuando exista autenticación y una clave de proveedor configurada.</p></Section>
+   <Section title="Historial"><div className="mt-3 space-y-4">{requests.map(x=><article key={x.id} className="rounded-xl border p-4"><div className="flex justify-between"><div><p className="font-bold">{x.request_type}</p><p className="text-xs text-zinc-500">{x.projects?.name||"Sin proyecto"} · {new Date(x.created_at).toLocaleString("es-CO")}</p></div><span className="text-xs font-bold">{x.status}</span></div><p className="mt-3 text-sm text-zinc-600">{x.prompt}</p>{x.output&&<pre className="mt-4 whitespace-pre-wrap rounded-xl bg-zinc-950 p-4 text-sm text-zinc-100">{x.output}</pre>}</article>)}{!requests.length&&<Empty text="No hay solicitudes."/ >}</div></Section></div>
+ </AppShell>;
+}

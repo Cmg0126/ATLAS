@@ -1,15 +1,19 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "@fontsource/roboto/300.css";
+@import "@fontsource/roboto/400.css";
+@import "@fontsource/roboto/500.css";
+@import "@fontsource/roboto/700.css";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: "Roboto", Arial, sans-serif;
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: "Roboto", Arial, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -49,21 +53,21 @@
 }
 
 :root {
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
+  --card: oklch(0.12 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.12 0 0);
+  --popover-foreground: oklch(0.985 0 0);
   --primary: oklch(0.205 0 0);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.18 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.18 0 0);
+  --muted-foreground: oklch(0.72 0 0);
+  --accent: oklch(0.18 0 0);
+  --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
+  --border: oklch(0.28 0 0);
+  --input: oklch(0.22 0 0);
   --ring: oklch(0.708 0 0);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
@@ -79,8 +83,8 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0 0 0);
+  --foreground: oklch(0.985 0 0);
 }
 
 .dark {
@@ -123,8 +127,63 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: "Roboto", Arial, sans-serif;
   }
   html {
     @apply font-sans;
+    color-scheme: dark;
   }
+}
+
+@layer utilities {
+  .bg-orange-500,
+  .bg-orange-600 { background-color: #ffbd59 !important; }
+  .bg-orange-500.text-white,
+  .bg-orange-600.text-white { color: #09090b !important; }
+  .text-orange-500,
+  .text-orange-600,
+  .text-orange-700 { color: #ffbd59 !important; }
+  .border-orange-300,
+  .border-orange-400,
+  .border-orange-500 { border-color: #ffbd59 !important; }
+  .focus\:border-orange-500:focus { border-color: #ffbd59 !important; }
+  .hover\:border-orange-400:hover { border-color: #ffbd59 !important; }
+  .hover\:text-orange-500:hover { color: #ffbd59 !important; }
+  /* Superficies oscuras con niveles visibles sobre el fondo negro. */
+  .bg-white { background-color: #121214 !important; }
+  .bg-zinc-50 { background-color: #1a1a1d !important; }
+  .bg-zinc-100 { background-color: #202024 !important; }
+  .bg-yellow-50,
+  .bg-yellow-100,
+  .bg-orange-50,
+  .bg-orange-100 { background-color: #1c1c20 !important; }
+  .bg-red-50,
+  .bg-red-100 { background-color: #251719 !important; }
+  .bg-emerald-50,
+  .bg-emerald-100,
+  .bg-green-50,
+  .bg-green-100 { background-color: #14221b !important; }
+  .bg-blue-50,
+  .bg-blue-100 { background-color: #151d2b !important; }
+  .text-zinc-950,
+  .text-zinc-900,
+  .text-zinc-800,
+  .text-zinc-700,
+  .text-zinc-600 { color: #e4e4e7 !important; }
+  .text-zinc-500 { color: #a1a1aa !important; }
+  .border-zinc-200,
+  .border-zinc-300 { border-color: #27272a !important; }
+  .border-yellow-200,
+  .border-yellow-300,
+  .border-yellow-400 { border-color: #665126 !important; }
+  .hover\:bg-zinc-50:hover { background-color: #18181b !important; }
+  input,
+  select,
+  textarea {
+    background-color: #09090b;
+    color: #fafafa;
+    border-color: #3f3f46;
+  }
+  input::placeholder,
+  textarea::placeholder { color: #71717a; }
 }
