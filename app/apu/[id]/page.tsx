@@ -4,12 +4,12 @@ import AppShell from "@/components/layout/AppShell";
 import { dbSelect } from "@/lib/supabase-rest";
 import { Field, input, Metric, PageTitle } from "../../domain-ui";
 import {
-  addApuItem,
   deleteApuItem,
   duplicateApu,
   updateApu,
   updateApuItem,
 } from "../actions";
+import { ApuResourceForm } from "./ApuResourceForm";
 
 const money = new Intl.NumberFormat("es-CO", {
   style: "currency",
@@ -54,13 +54,6 @@ type Item = {
   unit_cost: number;
   subtotal: number;
 };
-type Product = {
-  id: string;
-  internal_sku: string | null;
-  name: string;
-  brand: string | null;
-  model: string | null;
-};
 type Resource = {
   id: string;
   resource_type: ItemType;
@@ -89,18 +82,12 @@ export default async function ApuDetailPage({
   });
   if (!apu) notFound();
 
-  const [items, products, resources] = await Promise.all([
+  const [items, resources] = await Promise.all([
     dbSelect<Item>("apu_items", {
       select: "id,item_type,code,description,unit,quantity,unit_cost,subtotal",
       apu_id: `eq.${id}`,
       item_type: "in.(EQUIPMENT,MATERIAL,LABOR)",
       order: "item_type.asc,sort_order.asc,created_at.asc",
-    }),
-    dbSelect<Product>("catalog_products", {
-      select: "id,internal_sku,name,brand,model",
-      company_id: `eq.${apu.company_id}`,
-      active: "eq.true",
-      order: "name.asc",
     }),
     dbSelect<Resource>("apu_resources", {
       select: "id,resource_type,code,description,unit,default_unit_cost",
@@ -278,88 +265,9 @@ export default async function ApuDetailPage({
           <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
             <h2 className="text-xl font-bold">Agregar recurso</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Reutiliza un recurso, elige un producto del catálogo o créalo libremente.
+              Elige el grupo y luego selecciona un recurso de ese grupo o escríbelo libremente.
             </p>
-            <form action={addApuItem} className="mt-4 space-y-4">
-              <input type="hidden" name="apu_id" value={apu.id} />
-              <input type="hidden" name="company_id" value={apu.company_id} />
-              <Field label="Biblioteca APU (opcional)">
-                <select name="apu_resource_id" className={input}>
-                  <option value="">Crear o traer un recurso nuevo</option>
-                  {(Object.keys(typeNames) as ItemType[]).map((type) => (
-                    <optgroup key={type} label={typeNames[type].replace(/^[IVX]+\.\s*/, "")}>
-                      {resources
-                        .filter((resource) => resource.resource_type === type)
-                        .map((resource) => (
-                          <option key={resource.id} value={resource.id}>
-                            {resource.code ? `${resource.code} · ` : ""}
-                            {resource.description} · {resource.unit} · {money.format(Number(resource.default_unit_cost))}
-                          </option>
-                        ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Grupo (para recurso nuevo)">
-                <select name="item_type" defaultValue="" className={input}>
-                  <option value="" disabled>
-                    Seleccionar grupo
-                  </option>
-                  {Object.entries(typeNames).map(([key, label]) => (
-                    <option key={key} value={key}>
-                      {label.replace(/^[IVX]+\.\s*/, "")}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Catálogo (opcional)">
-                <select name="catalog_product_id" className={input}>
-                  <option value="">Crear recurso libremente</option>
-                  {products.map((product) => (
-                    <option key={product.id} value={product.id}>
-                      {product.internal_sku ? `${product.internal_sku} · ` : ""}
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <Field label="Descripción">
-                <input name="description" className={input} />
-              </Field>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Código">
-                  <input name="code" className={input} />
-                </Field>
-                <Field label="Unidad">
-                  <input name="unit" defaultValue="UND" className={input} />
-                </Field>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Cantidad">
-                  <input
-                    name="quantity"
-                    type="number"
-                    min="0"
-                    step="0.0001"
-                    defaultValue="1"
-                    className={input}
-                  />
-                </Field>
-                <Field label="Tarifa / precio unitario">
-                  <input
-                    name="unit_cost"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    defaultValue="0"
-                    className={input}
-                  />
-                </Field>
-              </div>
-              <button className="w-full rounded-xl bg-yellow-400 px-4 py-3 font-bold text-black">
-                Agregar y recalcular
-              </button>
-            </form>
+            <ApuResourceForm apuId={apu.id} companyId={apu.company_id} resources={resources} />
           </section>
 
           <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">

@@ -132,7 +132,7 @@ export async function addApuItem(data: FormData) {
   const productId = value(data, "catalog_product_id");
   const selectedResourceId = value(data, "apu_resource_id");
   let description = value(data, "description");
-  let unit = value(data, "unit") || "UND";
+  let unit = value(data, "unit");
   let unitCost = numeric(data, "unit_cost");
   let supplierPriceId: string | null = null;
   let code = value(data, "code") || null;
@@ -148,12 +148,14 @@ export async function addApuItem(data: FormData) {
       limit: 1,
     });
     if (!resource) throw new Error("El recurso reutilizable no existe o está inactivo.");
-    itemType = resource.resource_type;
+    if (resource.resource_type !== itemType) {
+      throw new Error("El recurso elegido no pertenece al grupo seleccionado.");
+    }
     resourceId = resource.id;
     catalogProductId = resource.catalog_product_id;
-    description = resource.description;
-    unit = resource.unit;
-    code = resource.code;
+    description = description || resource.description;
+    unit = unit || resource.unit;
+    code = code || resource.code;
     if (unitCost <= 0) unitCost = Number(resource.default_unit_cost);
   } else if (productId) {
     const [product] = await dbSelect<{ internal_sku: string | null; name: string; unit: string; supplier_prices: { id: string; unit_price: number; active: boolean; created_at: string }[] }>("catalog_products", {
@@ -161,9 +163,9 @@ export async function addApuItem(data: FormData) {
     });
     if (!product) throw new Error("El producto no pertenece a la empresa.");
     const latest = (product.supplier_prices || []).filter((price) => price.active).sort((a, b) => b.created_at.localeCompare(a.created_at))[0];
-    description = product.name;
-    unit = product.unit;
-    code = product.internal_sku;
+    description = description || product.name;
+    unit = unit || product.unit;
+    code = code || product.internal_sku;
     if (latest) {
       supplierPriceId = latest.id;
       if (unitCost <= 0) unitCost = Number(latest.unit_price);
@@ -171,6 +173,7 @@ export async function addApuItem(data: FormData) {
   }
   if (!allowedItemTypes.has(itemType)) throw new Error("Selecciona el grupo del recurso.");
   if (!description) throw new Error("Selecciona un producto o escribe una descripción.");
+  unit = unit || "UND";
   if (!resourceId) {
     resourceId = await saveReusableResource({
       companyId,
