@@ -76,6 +76,27 @@ function normalizeProduct(value: unknown): SyscomProduct | null {
   };
 }
 
+function findProductRows(value: unknown, depth = 0): unknown[] {
+  if (depth > 4 || value === null || typeof value !== "object") return [];
+  if (Array.isArray(value)) {
+    if (value.some((item) => item && typeof item === "object" && (
+      "producto_id" in (item as Record<string, unknown>) ||
+      "modelo" in (item as Record<string, unknown>) ||
+      "titulo" in (item as Record<string, unknown>)
+    ))) return value;
+    for (const item of value) {
+      const nested = findProductRows(item, depth + 1);
+      if (nested.length) return nested;
+    }
+    return [];
+  }
+  for (const nestedValue of Object.values(value as Record<string, unknown>)) {
+    const nested = findProductRows(nestedValue, depth + 1);
+    if (nested.length) return nested;
+  }
+  return [];
+}
+
 export async function searchSyscomProducts(query: string) {
   const token = await getToken();
   const url = new URL(`${API_URL}/productos`);
@@ -95,13 +116,6 @@ export async function searchSyscomProducts(query: string) {
       : `SYSCOM no respondió correctamente (HTTP ${response.status}).`;
     throw new Error(message);
   }
-  const container = body && typeof body === "object" ? body as Record<string, unknown> : {};
-  const rows = Array.isArray(body)
-    ? body
-    : Array.isArray(container.productos)
-      ? container.productos
-      : Array.isArray(container.data)
-        ? container.data
-        : [];
+  const rows = findProductRows(body);
   return rows.map(normalizeProduct).filter((item): item is SyscomProduct => Boolean(item)).slice(0, 30);
 }
