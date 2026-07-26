@@ -14,7 +14,12 @@ export default async function ApuPage() {
     }),
   ]);
   return <AppShell>
-    <PageTitle domain="Presupuestos" title="Banco de APU" description="Análisis de precios unitarios reutilizables para cotizaciones y proyectos." />
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <PageTitle domain="Presupuestos" title="Banco de APU" description="Análisis de precios unitarios reutilizables para cotizaciones y proyectos." />
+      <Link href="/apu/resources" className="rounded-xl border border-zinc-700 px-4 py-3">
+        Biblioteca de recursos
+      </Link>
+    </div>
     <div className="mt-7 grid gap-4 md:grid-cols-3">
       <Metric label="APU registrados" value={String(apus.length)} />
       <Metric label="APU activos" value={String(apus.filter((apu) => apu.status === "ACTIVE").length)} />

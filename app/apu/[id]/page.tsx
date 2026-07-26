@@ -61,6 +61,14 @@ type Product = {
   brand: string | null;
   model: string | null;
 };
+type Resource = {
+  id: string;
+  resource_type: ItemType;
+  code: string | null;
+  description: string;
+  unit: string;
+  default_unit_cost: number;
+};
 
 const compactInput =
   "w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-white outline-none focus:border-yellow-400";
@@ -81,7 +89,7 @@ export default async function ApuDetailPage({
   });
   if (!apu) notFound();
 
-  const [items, products] = await Promise.all([
+  const [items, products, resources] = await Promise.all([
     dbSelect<Item>("apu_items", {
       select: "id,item_type,code,description,unit,quantity,unit_cost,subtotal",
       apu_id: `eq.${id}`,
@@ -93,6 +101,12 @@ export default async function ApuDetailPage({
       company_id: `eq.${apu.company_id}`,
       active: "eq.true",
       order: "name.asc",
+    }),
+    dbSelect<Resource>("apu_resources", {
+      select: "id,resource_type,code,description,unit,default_unit_cost",
+      company_id: `eq.${apu.company_id}`,
+      active: "eq.true",
+      order: "resource_type.asc,description.asc",
     }),
   ]);
 
@@ -115,6 +129,9 @@ export default async function ApuDetailPage({
         <div className="flex gap-3">
           <Link href="/apu" className="rounded-xl border border-zinc-700 px-4 py-3">
             Banco de APU
+          </Link>
+          <Link href="/apu/resources" className="rounded-xl border border-zinc-700 px-4 py-3">
+            Biblioteca de recursos
           </Link>
           <form action={duplicateApu}>
             <input type="hidden" name="apu_id" value={apu.id} />
@@ -261,13 +278,30 @@ export default async function ApuDetailPage({
           <section className="rounded-2xl border border-zinc-800 bg-zinc-950 p-5">
             <h2 className="text-xl font-bold">Agregar recurso</h2>
             <p className="mt-1 text-sm text-zinc-400">
-              Elige un artículo del catálogo o escribe libremente el recurso.
+              Reutiliza un recurso, elige un producto del catálogo o créalo libremente.
             </p>
             <form action={addApuItem} className="mt-4 space-y-4">
               <input type="hidden" name="apu_id" value={apu.id} />
               <input type="hidden" name="company_id" value={apu.company_id} />
-              <Field label="Grupo">
-                <select name="item_type" required defaultValue="" className={input}>
+              <Field label="Biblioteca APU (opcional)">
+                <select name="apu_resource_id" className={input}>
+                  <option value="">Crear o traer un recurso nuevo</option>
+                  {(Object.keys(typeNames) as ItemType[]).map((type) => (
+                    <optgroup key={type} label={typeNames[type].replace(/^[IVX]+\.\s*/, "")}>
+                      {resources
+                        .filter((resource) => resource.resource_type === type)
+                        .map((resource) => (
+                          <option key={resource.id} value={resource.id}>
+                            {resource.code ? `${resource.code} · ` : ""}
+                            {resource.description} · {resource.unit} · {money.format(Number(resource.default_unit_cost))}
+                          </option>
+                        ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Grupo (para recurso nuevo)">
+                <select name="item_type" defaultValue="" className={input}>
                   <option value="" disabled>
                     Seleccionar grupo
                   </option>

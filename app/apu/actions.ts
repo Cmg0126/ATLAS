@@ -12,6 +12,67 @@ const numeric = (data: FormData, key: string, fallback = 0) => {
 const allowedItemTypes = new Set(["EQUIPMENT", "MATERIAL", "LABOR"]);
 const savedRedirect = (apuId: string, message: string) =>
   redirect(`/apu/${apuId}?saved=${encodeURIComponent(message)}`);
+const resourcesRedirect = (message: string) =>
+  redirect(`/apu/resources?saved=${encodeURIComponent(message)}`);
+
+type ApuResource = {
+  id: string;
+  resource_type: string;
+  catalog_product_id: string | null;
+  code: string | null;
+  description: string;
+  unit: string;
+  default_unit_cost: number;
+};
+
+async function saveReusableResource({
+  companyId,
+  itemType,
+  catalogProductId,
+  code,
+  description,
+  unit,
+  unitCost,
+}: {
+  companyId: string;
+  itemType: string;
+  catalogProductId: string | null;
+  code: string | null;
+  description: string;
+  unit: string;
+  unitCost: number;
+}) {
+  const identityKey = (code || description).trim().toLowerCase();
+  const [existing] = await dbSelect<ApuResource>("apu_resources", {
+    select: "id,resource_type,catalog_product_id,code,description,unit,default_unit_cost",
+    company_id: `eq.${companyId}`,
+    resource_type: `eq.${itemType}`,
+    identity_key: `eq.${identityKey}`,
+    limit: 1,
+  });
+  if (existing) {
+    await dbUpdate("apu_resources", { id: `eq.${existing.id}`, company_id: `eq.${companyId}` }, {
+      catalog_product_id: catalogProductId || existing.catalog_product_id,
+      code,
+      description,
+      unit,
+      default_unit_cost: unitCost,
+      active: true,
+      updated_at: new Date().toISOString(),
+    });
+    return existing.id;
+  }
+  const resource = await dbInsert<{ id: string }>("apu_resources", {
+    company_id: companyId,
+    resource_type: itemType,
+    catalog_product_id: catalogProductId,
+    code,
+    description,
+    unit,
+    default_unit_cost: unitCost,
+  });
+  return resource.id;
+}
 
 async function recalculate(apuId: string, companyId: string) {
   const [apu] = await dbSelect<{ administration_percent: number; contingency_percent: number; profit_percent: number; tax_on_profit_percent: number }>("apu_templates", {
@@ -69,12 +130,32 @@ export async function addApuItem(data: FormData) {
   const apuId = value(data, "apu_id");
   const companyId = value(data, "company_id");
   const productId = value(data, "catalog_product_id");
+  const selectedResourceId = value(data, "apu_resource_id");
   let description = value(data, "description");
   let unit = value(data, "unit") || "UND";
   let unitCost = numeric(data, "unit_cost");
   let supplierPriceId: string | null = null;
   let code = value(data, "code") || null;
-  if (productId) {
+  let resourceId: string | null = null;
+  let catalogProductId: string | null = productId || null;
+  let itemType = value(data, "item_type");
+  if (selectedResourceId) {
+    const [resource] = await dbSelect<ApuResource>("apu_resources", {
+      select: "id,resource_type,catalog_product_id,code,description,unit,default_unit_cost",
+      id: `eq.${selectedResourceId}`,
+      company_id: `eq.${companyId}`,
+      active: "eq.true",
+      limit: 1,
+    });
+    if (!resource) throw new Error("El recurso reutilizable no existe o está inactivo.");
+    itemType = resource.resource_type;
+    resourceId = resource.id;
+    catalogProductId = resource.catalog_product_id;
+    description = resource.description;
+    unit = resource.unit;
+    code = resource.code;
+    if (unitCost <= 0) unitCost = Number(resource.default_unit_cost);
+  } else if (productId) {
     const [product] = await dbSelect<{ internal_sku: string | null; name: string; unit: string; supplier_prices: { id: string; unit_price: number; active: boolean; created_at: string }[] }>("catalog_products", {
       select: "internal_sku,name,unit,supplier_prices(id,unit_price,active,created_at)", id: `eq.${productId}`, company_id: `eq.${companyId}`, limit: 1,
     });
@@ -88,13 +169,23 @@ export async function addApuItem(data: FormData) {
       if (unitCost <= 0) unitCost = Number(latest.unit_price);
     }
   }
+  if (!allowedItemTypes.has(itemType)) throw new Error("Selecciona el grupo del recurso.");
   if (!description) throw new Error("Selecciona un producto o escribe una descripción.");
-  const itemType = value(data, "item_type") || "MATERIAL";
-  if (!allowedItemTypes.has(itemType)) throw new Error("El grupo del recurso no es válido.");
+  if (!resourceId) {
+    resourceId = await saveReusableResource({
+      companyId,
+      itemType,
+      catalogProductId,
+      code,
+      description,
+      unit,
+      unitCost,
+    });
+  }
   const quantity = Math.max(0, numeric(data, "quantity", 1));
   await dbInsert("apu_items", {
     company_id: companyId, apu_id: apuId, item_type: itemType,
-    catalog_product_id: productId || null, supplier_price_id: supplierPriceId, code, description, unit,
+    resource_id: resourceId, catalog_product_id: catalogProductId, supplier_price_id: supplierPriceId, code, description, unit,
     quantity, performance: 1, waste_percent: 0, unit_cost: unitCost,
     subtotal: quantity * unitCost, notes: value(data, "notes") || null,
   });
@@ -139,6 +230,50 @@ export async function deleteApuItem(data: FormData) {
   await recalculate(apuId, companyId);
   revalidatePath(`/apu/${apuId}`);
   savedRedirect(apuId, "Recurso eliminado y APU recalculado.");
+}
+
+export async function createApuResource(data: FormData) {
+  const companyId = value(data, "company_id");
+  const resourceType = value(data, "resource_type");
+  const description = value(data, "description");
+  if (!companyId || !allowedItemTypes.has(resourceType) || !description) {
+    throw new Error("Empresa, grupo y descripción son obligatorios.");
+  }
+  await saveReusableResource({
+    companyId,
+    itemType: resourceType,
+    catalogProductId: null,
+    code: value(data, "code") || null,
+    description,
+    unit: value(data, "unit") || "UND",
+    unitCost: Math.max(0, numeric(data, "default_unit_cost")),
+  });
+  revalidatePath("/apu/resources");
+  resourcesRedirect("Recurso guardado en la biblioteca.");
+}
+
+export async function updateApuResource(data: FormData) {
+  const companyId = value(data, "company_id");
+  const resourceId = value(data, "resource_id");
+  const resourceType = value(data, "resource_type");
+  const description = value(data, "description");
+  if (!allowedItemTypes.has(resourceType) || !description) {
+    throw new Error("Grupo y descripción son obligatorios.");
+  }
+  await dbUpdate("apu_resources", {
+    id: `eq.${resourceId}`,
+    company_id: `eq.${companyId}`,
+  }, {
+    resource_type: resourceType,
+    code: value(data, "code") || null,
+    description,
+    unit: value(data, "unit") || "UND",
+    default_unit_cost: Math.max(0, numeric(data, "default_unit_cost")),
+    active: value(data, "active") === "true",
+    updated_at: new Date().toISOString(),
+  });
+  revalidatePath("/apu/resources");
+  resourcesRedirect("Recurso actualizado.");
 }
 
 export async function duplicateApu(data: FormData) {
