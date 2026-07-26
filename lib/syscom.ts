@@ -97,6 +97,14 @@ function findProductRows(value: unknown, depth = 0): unknown[] {
   return [];
 }
 
+function responseShape(value: unknown, depth = 0): unknown {
+  if (depth > 3) return typeof value;
+  if (Array.isArray(value)) return { array: value.length, item: value.length ? responseShape(value[0], depth + 1) : null };
+  if (!value || typeof value !== "object") return typeof value;
+  return Object.fromEntries(Object.entries(value as Record<string, unknown>)
+    .slice(0, 20).map(([key, nested]) => [key, responseShape(nested, depth + 1)]));
+}
+
 export async function searchSyscomProducts(query: string) {
   const token = await getToken();
   const url = new URL(`${API_URL}/productos`);
@@ -117,5 +125,8 @@ export async function searchSyscomProducts(query: string) {
     throw new Error(message);
   }
   const rows = findProductRows(body);
+  if (!rows.length) {
+    console.warn(JSON.stringify({ message: "syscom_empty_product_shape", shape: responseShape(body) }));
+  }
   return rows.map(normalizeProduct).filter((item): item is SyscomProduct => Boolean(item)).slice(0, 30);
 }
