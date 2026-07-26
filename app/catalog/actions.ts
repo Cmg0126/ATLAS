@@ -13,6 +13,11 @@ const normalizeKey = (parts: string[]) =>
   parts.join("|").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9|]+/g, " ").trim();
 const normalizeName = (name: string) =>
   name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+const isChecked = (data: FormData, key: string) => data.get(key) === "on";
+const revalidateCatalog = () => {
+  revalidatePath("/catalog");
+  revalidatePath("/catalog/settings");
+};
 
 export async function createCatalogProduct(data: FormData) {
   const companyId = required(data, "company_id", "La empresa");
@@ -56,8 +61,26 @@ export async function createProductSystem(data: FormData) {
     normalized_name: normalizeName(name),
     description: value(data, "description") || null,
   });
-  revalidatePath("/catalog");
-  revalidatePath("/catalog/settings");
+  revalidateCatalog();
+}
+
+export async function updateProductSystem(data: FormData) {
+  const companyId = required(data, "company_id", "La empresa");
+  const systemId = required(data, "system_id", "El sistema");
+  const name = required(data, "name", "El sistema");
+  const [system] = await dbSelect<{ id: string }>("product_systems", {
+    select: "id", id: `eq.${systemId}`, company_id: `eq.${companyId}`, limit: 1,
+  });
+  if (!system) throw new Error("El sistema no pertenece a la empresa.");
+  await dbUpdate("product_systems", { id: `eq.${systemId}`, company_id: `eq.${companyId}` }, {
+    name,
+    normalized_name: normalizeName(name),
+    description: value(data, "description") || null,
+    sort_order: Number(value(data, "sort_order") || 0),
+    active: isChecked(data, "active"),
+    updated_at: new Date().toISOString(),
+  });
+  revalidateCatalog();
 }
 
 export async function createProductCategory(data: FormData) {
@@ -75,8 +98,31 @@ export async function createProductCategory(data: FormData) {
     normalized_name: normalizeName(name),
     description: value(data, "description") || null,
   });
-  revalidatePath("/catalog");
-  revalidatePath("/catalog/settings");
+  revalidateCatalog();
+}
+
+export async function updateProductCategory(data: FormData) {
+  const companyId = required(data, "company_id", "La empresa");
+  const categoryId = required(data, "category_id", "La categoría");
+  const systemId = required(data, "system_id", "El sistema");
+  const name = required(data, "name", "La categoría");
+  const [category] = await dbSelect<{ id: string }>("product_categories", {
+    select: "id", id: `eq.${categoryId}`, company_id: `eq.${companyId}`, limit: 1,
+  });
+  const [system] = await dbSelect<{ id: string }>("product_systems", {
+    select: "id", id: `eq.${systemId}`, company_id: `eq.${companyId}`, limit: 1,
+  });
+  if (!category || !system) throw new Error("La categoría o el sistema no pertenece a la empresa.");
+  await dbUpdate("product_categories", { id: `eq.${categoryId}`, company_id: `eq.${companyId}` }, {
+    system_id: systemId,
+    name,
+    normalized_name: normalizeName(name),
+    description: value(data, "description") || null,
+    sort_order: Number(value(data, "sort_order") || 0),
+    active: isChecked(data, "active"),
+    updated_at: new Date().toISOString(),
+  });
+  revalidateCatalog();
 }
 
 export async function createProductSubcategory(data: FormData) {
@@ -94,8 +140,31 @@ export async function createProductSubcategory(data: FormData) {
     normalized_name: normalizeName(name),
     description: value(data, "description") || null,
   });
-  revalidatePath("/catalog");
-  revalidatePath("/catalog/settings");
+  revalidateCatalog();
+}
+
+export async function updateProductSubcategory(data: FormData) {
+  const companyId = required(data, "company_id", "La empresa");
+  const subcategoryId = required(data, "subcategory_id", "La subcategoría");
+  const categoryId = required(data, "category_id", "La categoría");
+  const name = required(data, "name", "La subcategoría");
+  const [subcategory] = await dbSelect<{ id: string }>("product_subcategories", {
+    select: "id", id: `eq.${subcategoryId}`, company_id: `eq.${companyId}`, limit: 1,
+  });
+  const [category] = await dbSelect<{ id: string }>("product_categories", {
+    select: "id", id: `eq.${categoryId}`, company_id: `eq.${companyId}`, limit: 1,
+  });
+  if (!subcategory || !category) throw new Error("La subcategoría o la categoría no pertenece a la empresa.");
+  await dbUpdate("product_subcategories", { id: `eq.${subcategoryId}`, company_id: `eq.${companyId}` }, {
+    category_id: categoryId,
+    name,
+    normalized_name: normalizeName(name),
+    description: value(data, "description") || null,
+    sort_order: Number(value(data, "sort_order") || 0),
+    active: isChecked(data, "active"),
+    updated_at: new Date().toISOString(),
+  });
+  revalidateCatalog();
 }
 
 export async function updateProductClassification(data: FormData) {
