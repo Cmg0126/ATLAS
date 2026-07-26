@@ -7,6 +7,7 @@ import {
 } from "../../actions";
 import { Empty, Field, input } from "../../ui";
 import { ProductSearchFields, type CatalogProduct } from "./ProductSearchFields";
+import { DeleteQuotationButton } from "../../quotations/DeleteQuotationButton";
 
 export type QuotationItem = {
   id: string; description: string; unit: string; quantity: number; unit_price: number;
@@ -38,13 +39,19 @@ export default function QuotationManager({ opportunityId, opportunityTitle, quot
             <button className="rounded-xl bg-zinc-950 px-4 py-2 font-semibold text-white">Guardar</button>
           </form>
         </div>
-        <form action={createQuotationRevision} className="mt-4">
+        <div className="mt-4 flex flex-wrap gap-3">
+        <a href={`/api/commercial/quotations/${quotation.id}/pdf`} className="rounded-xl bg-yellow-500 px-4 py-2 text-sm font-semibold text-black">
+          Descargar PDF
+        </a>
+        <form action={createQuotationRevision}>
           <input type="hidden" name="quotation_id" value={quotation.id} />
           <input type="hidden" name="opportunity_id" value={opportunityId} />
           <button className="rounded-xl border border-yellow-300 bg-zinc-900 px-4 py-2 text-sm font-semibold text-yellow-500">
             Crear nueva versión
           </button>
         </form>
+        <DeleteQuotationButton quotationId={quotation.id} opportunityId={opportunityId} />
+        </div>
         <div className="mt-5 overflow-x-auto rounded-xl border">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-zinc-950/5 text-zinc-500"><tr><th className="px-4 py-3">Descripción</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Desc.</th><th>IVA</th><th /></tr></thead>

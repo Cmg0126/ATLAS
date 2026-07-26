@@ -276,6 +276,19 @@ export async function updateQuotationStatus(formData: FormData) {
   revalidatePath(`/commercial/opportunities/${opportunityId}`);
 }
 
+export async function deleteQuotation(formData: FormData) {
+  const quotationId = required(formData, "quotation_id", "La cotización");
+  const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  const [project] = await dbSelect<{ id: string }>("projects", {
+    select: "id", quotation_id: `eq.${quotationId}`, limit: 1,
+  });
+  if (project) throw new Error("No se puede eliminar: esta cotización ya fue convertida en proyecto.");
+  await dbDelete("quotations", { id: `eq.${quotationId}`, opportunity_id: `eq.${opportunityId}` });
+  revalidatePath("/commercial");
+  revalidatePath("/commercial/quotations");
+  revalidatePath(`/commercial/opportunities/${opportunityId}`);
+}
+
 type RevisionSource = {
   id: string;
   opportunity_id: string;
