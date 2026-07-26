@@ -3,6 +3,7 @@ import { createCompanyCiiu, createCompanyContact, createCompanyTaxEvent, updateC
 import { uploadReusableDocument } from "../../tenders/documents/actions";
 import { RupForm } from "../../tenders/profile/rup-form";
 import { Field, input } from "../ui";
+import { DeleteDocumentButton } from "./DeleteDocumentButton";
 
 type Company = Record<string, string | number | boolean | null> & { id:string; name:string };
 type Row = Record<string, string | boolean | null> & { id:string };
@@ -75,7 +76,7 @@ export async function CompanySettings() {
           <Field label="Vigente hasta"><input type="date" name="valid_until" className={input}/></Field>
           <button className="w-full rounded-xl bg-yellow-500 p-3 font-semibold text-black">Guardar documento</button>
         </form>
-        <div className="divide-y divide-zinc-800">{documents.map(document=><div key={document.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-semibold">{document.name}</p><p className="text-sm text-zinc-400">{String(document.category).replaceAll("_"," ")} · Expedición: {document.issue_date||"sin fecha"} · Vigencia: {document.valid_until||"sin vencimiento"}</p></div><a href={`/api/tenders/documents/${document.id}`} target="_blank" rel="noreferrer" className="rounded-xl border border-zinc-700 px-4 py-2 font-semibold">Abrir</a></div>)}{!documents.length&&<p className="py-8 text-center text-zinc-500">Todavía no hay documentos empresariales.</p>}</div>
+        <div className="divide-y divide-zinc-800">{documents.map(document=><div key={document.id} className="flex flex-wrap items-center justify-between gap-3 py-4"><div><p className="font-semibold">{document.name}</p><p className="text-sm text-zinc-400">{String(document.category).replaceAll("_"," ")} · Expedición: {document.issue_date||"sin fecha"} · Vigencia: {document.valid_until||"sin vencimiento"}</p></div><div className="flex gap-2"><a href={`/api/tenders/documents/${document.id}`} target="_blank" rel="noreferrer" className="rounded-xl border border-zinc-700 px-4 py-2 font-semibold">Abrir</a><DeleteDocumentButton documentId={document.id} companyId={company.id} name={String(document.name)}/></div></div>)}{!documents.length&&<p className="py-8 text-center text-zinc-500">Todavía no hay documentos empresariales.</p>}</div>
       </div>
     </section>
   </>;

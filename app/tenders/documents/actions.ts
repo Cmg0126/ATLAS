@@ -67,3 +67,35 @@ export async function uploadReusableDocument(data: FormData) {
   revalidatePath("/tenders/documents");
   revalidatePath("/commercial/setup");
 }
+
+export async function deleteReusableDocument(data: FormData) {
+  const documentId = String(data.get("document_id") ?? "").trim();
+  const companyId = String(data.get("company_id") ?? "").trim();
+  if (!documentId || !companyId) throw new Error("No fue posible identificar el documento.");
+
+  const supabase = await createSupabaseServerClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("Debes iniciar sesión.");
+  const { data: membership } = await supabase.from("profiles").select("id")
+    .eq("id", user.id).eq("company_id", companyId).eq("is_active", true).maybeSingle();
+  if (!membership) throw new Error("No tienes acceso a esa empresa.");
+
+  const admin = getSupabaseAdminClient();
+  const { data: document, error: lookupError } = await admin
+    .from("reusable_tender_documents")
+    .select("id,storage_path")
+    .eq("id", documentId)
+    .eq("company_id", companyId)
+    .maybeSingle();
+  if (lookupError) throw new Error(`No fue posible consultar el documento: ${lookupError.message}`);
+  if (!document) throw new Error("El documento ya no existe o pertenece a otra empresa.");
+
+  const { error: storageError } = await admin.storage.from("tender-documents").remove([document.storage_path]);
+  if (storageError) throw new Error(`No fue posible borrar el archivo: ${storageError.message}`);
+  const { error: metadataError } = await admin.from("reusable_tender_documents")
+    .delete().eq("id", documentId).eq("company_id", companyId);
+  if (metadataError) throw new Error(`No fue posible borrar el registro: ${metadataError.message}`);
+
+  revalidatePath("/tenders/documents");
+  revalidatePath("/commercial/setup");
+}
