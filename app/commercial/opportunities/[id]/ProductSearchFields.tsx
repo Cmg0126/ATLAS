@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CurrencyInput } from "@/components/currency-input";
 import { Field, input } from "../../ui";
 
 export type CatalogProduct = {
@@ -104,7 +103,19 @@ export function ProductSearchFields({ products }: { products: CatalogProduct[] }
     <Field label="Descripción"><input name="description" required className={input} value={description} onChange={(event) => setDescription(event.target.value)} placeholder="Escribe el servicio, actividad o producto" /></Field>
     <Field label="Unidad"><input name="unit" required className={input} value={unit} onChange={(event) => setUnit(event.target.value)} /></Field>
     <Field label="Cantidad"><input type="number" name="quantity" min="0.01" step="0.01" defaultValue="1" required className={input} /></Field>
-    <Field label="Precio de venta"><CurrencyInput name="unit_price" value={price} onValueChange={setPrice} required className={input} /></Field>
+    <Field label="Precio de venta">
+      <input
+        type="number"
+        name="unit_price"
+        min="0"
+        step="0.01"
+        value={price}
+        onChange={(event) => setPrice(event.target.value)}
+        required
+        className={input}
+        placeholder="0,00"
+      />
+    </Field>
     <Field label="Descuento %"><input type="number" name="discount_percent" min="0" max="100" step="0.01" defaultValue="0" className={input} /></Field>
     <Field label="IVA %"><input type="number" name="tax_percent" min="0" max="100" step="0.01" value={taxPercent} onChange={(event) => setTaxPercent(event.target.value)} className={input} /></Field>
   </>;
