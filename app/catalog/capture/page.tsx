@@ -5,7 +5,7 @@ import { saveCapturedProduct } from "./actions";
 
 type Payload = {
   code?: string; model?: string; brand?: string; description?: string;
-  price?: string; unit?: string; sourceUrl?: string;
+  price?: string; currency?: string; unit?: string; sourceUrl?: string;
 };
 
 function decodePayload(value?: string): Payload | null {
@@ -40,6 +40,7 @@ export default async function CapturePage({ searchParams }: { searchParams: Prom
         <label className="text-sm font-semibold text-zinc-200">Referencia / modelo<input name="model" defaultValue={payload.model} className={field} /></label>
         <label className="text-sm font-semibold text-zinc-200">Marca<input name="brand" defaultValue={payload.brand} className={field} /></label>
         <label className="text-sm font-semibold text-zinc-200">Precio sin IVA<input required name="price" defaultValue={payload.price} inputMode="decimal" className={field} /></label>
+        <label className="text-sm font-semibold text-zinc-200">Moneda<select name="currency" defaultValue={payload.currency || "COP"} className={field}><option value="COP">COP</option><option value="USD">USD</option><option value="EUR">EUR</option></select></label>
         <label className="text-sm font-semibold text-zinc-200">Unidad<input name="unit" defaultValue={payload.unit || "UND"} className={field} /></label>
         <label className="text-sm font-semibold text-zinc-200 md:col-span-2">Descripción<textarea required name="description" defaultValue={payload.description} rows={5} className={field} /></label>
         <input type="hidden" name="source_url" value={payload.sourceUrl} />

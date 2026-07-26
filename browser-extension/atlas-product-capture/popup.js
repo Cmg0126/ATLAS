@@ -1,5 +1,5 @@
 const atlasUrl = "https://atlas-theta-plum.vercel.app";
-const fields = Object.fromEntries(["code", "model", "brand", "description", "price", "unit"].map((id) => [id, document.getElementById(id)]));
+const fields = Object.fromEntries(["code", "model", "brand", "description", "price", "currency", "unit"].map((id) => [id, document.getElementById(id)]));
 const message = document.getElementById("message");
 
 function showMessage(text) {
@@ -26,27 +26,44 @@ async function readProduct() {
   const [{ result }] = await chrome.scripting.executeScript({
     target: { tabId: tab.id },
     func: () => {
-      const text = (selector) => document.querySelector(selector)?.textContent?.replace(/\s+/g, " ").trim() || "";
+      const clean = (value) => String(value || "").replace(/\s+/g, " ").trim();
+      const text = (selector) => clean(document.querySelector(selector)?.textContent);
       const attr = (selector, name) => document.querySelector(selector)?.getAttribute(name) || "";
       const body = document.body.innerText.replace(/\u00a0/g, " ");
       const title = attr('meta[property="og:title"]', "content") || text("h1") || document.title;
-      const description = attr('meta[property="og:description"]', "content") || text('[class*="description" i]') || title;
+      const rows = [...document.querySelectorAll("tr")];
+      const rowValue = (label) => {
+        const row = rows.find((candidate) => {
+          const cells = [...candidate.querySelectorAll("th,td")];
+          return clean(cells[0]?.textContent).toUpperCase() === label.toUpperCase();
+        });
+        const cells = row ? [...row.querySelectorAll("th,td")] : [];
+        return clean(cells.at(-1)?.textContent);
+      };
+      const lines = body.split(/\n+/).map(clean).filter(Boolean);
+      const lineValue = (label) => {
+        const normalizedLabel = label.toUpperCase();
+        const index = lines.findIndex((line) => line.toUpperCase() === normalizedLabel || line.toUpperCase().startsWith(`${normalizedLabel}:`));
+        if (index < 0) return "";
+        const inline = lines[index].replace(new RegExp(`^${label}\\s*:?\\s*`, "i"), "");
+        return clean(inline || lines[index + 1]);
+      };
+      const code = rowValue("SKU Sonepar") || lineValue("SKU Sonepar");
+      const model = rowValue("SKU Fabricante") || lineValue("SKU Fabricante");
+      const brand = rowValue("MARCA") || lineValue("MARCA");
+      const description = lineValue("Descripción") || attr('meta[property="og:description"]', "content") || title;
       const urlCode = location.pathname.split("/").filter(Boolean).pop() || "";
-      const codeMatch = body.match(/(?:c[oó]digo|sku)\s*:?\s*([A-Z0-9._/-]{4,})/i);
-      const modelMatch = body.match(/(?:referencia|modelo)\s*:?\s*([A-Z0-9._/-]{3,})/i);
-      const brandMatch = body.match(/(?:marca|fabricante)\s*:?\s*([^\n|]{2,50})/i);
-      const candidates = [...document.querySelectorAll("body *")]
-        .map((node) => node.children.length ? "" : (node.textContent || "").trim())
-        .filter((value) => /^\$\s*[\d.,]+$/.test(value));
-      const price = candidates.find((value) => /[1-9]/.test(value)) || (body.match(/\$\s*[\d.]+(?:,\d{2})?/) || [""])[0];
+      const priceMatch = body.match(/Precio\s*:\s*\(([A-Z]{3})\)\s*([\d.,]+)\s*([A-Z]+)/i);
+      const fallbackPrice = body.match(/\$\s*([\d.]+(?:,\d{2})?)/);
       return {
         sourceUrl: location.href,
-        code: codeMatch?.[1] || urlCode,
-        model: modelMatch?.[1] || urlCode,
-        brand: brandMatch?.[1] || "",
+        code: code || urlCode,
+        model: model || code || urlCode,
+        brand,
         description,
-        price,
-        unit: "UND"
+        price: priceMatch?.[2] || fallbackPrice?.[1] || "",
+        currency: priceMatch?.[1]?.toUpperCase() || "COP",
+        unit: priceMatch?.[3]?.toUpperCase() || "UND"
       };
     }
   });

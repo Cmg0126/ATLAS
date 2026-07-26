@@ -30,8 +30,9 @@ export async function saveCapturedProduct(data: FormData) {
   const model = text(data, "model") || code;
   const description = text(data, "description");
   const sourceUrl = text(data, "source_url");
+  const currency = text(data, "currency").toUpperCase();
   const unitPrice = parsePrice(text(data, "price"));
-  if (!companyId || !code || !description || !Number.isFinite(unitPrice) || unitPrice < 0) {
+  if (!companyId || !code || !description || !["COP", "USD", "EUR"].includes(currency) || !Number.isFinite(unitPrice) || unitPrice < 0) {
     throw new Error("Empresa, código, descripción y precio válido son obligatorios.");
   }
   const parsedUrl = new URL(sourceUrl);
@@ -105,7 +106,7 @@ export async function saveCapturedProduct(data: FormData) {
     .eq("company_id", companyId).eq("supplier_id", supplier.id).eq("product_id", productId).eq("active", true);
   const priceResult = await supabase.from("supplier_prices").insert({
     company_id: companyId, product_id: productId, supplier_id: supplier.id,
-    supplier_sku: code, unit_price: unitPrice, currency: "COP", tax_included: false,
+    supplier_sku: code, unit_price: unitPrice, currency, tax_included: false,
     source_file: sourceUrl, active: true,
   });
   if (priceResult.error) throw new Error(priceResult.error.message);
