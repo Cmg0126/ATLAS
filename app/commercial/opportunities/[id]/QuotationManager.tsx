@@ -3,11 +3,14 @@ import {
   createQuotationRevision,
   createQuotationItem,
   deleteQuotationItem,
+  updateQuotationDetails,
+  updateQuotationItem,
   updateQuotationStatus,
 } from "../../actions";
 import { Empty, Field, input } from "../../ui";
 import { ProductSearchFields, type CatalogProduct } from "./ProductSearchFields";
 import { DeleteQuotationButton } from "../../quotations/DeleteQuotationButton";
+import { ShareQuotationButton } from "./ShareQuotationButton";
 
 export type QuotationItem = {
   id: string; description: string; unit: string; quantity: number; unit_price: number;
@@ -16,6 +19,7 @@ export type QuotationItem = {
 export type Quotation = {
   id: string; quotation_number: string | null; status: string; subtotal: number;
   discount_total: number; tax_total: number; total: number; validity_date: string | null;
+  notes: string | null;
   quotation_items: QuotationItem[];
 };
 type Option = { id: string; name: string };
@@ -43,6 +47,7 @@ export default function QuotationManager({ opportunityId, opportunityTitle, quot
         <a href={`/api/commercial/quotations/${quotation.id}/pdf`} className="rounded-xl bg-yellow-500 px-4 py-2 text-sm font-semibold text-black">
           Descargar PDF
         </a>
+        <ShareQuotationButton quotationId={quotation.id} quotationNumber={quotation.quotation_number || "cotizacion"} />
         <form action={createQuotationRevision}>
           <input type="hidden" name="quotation_id" value={quotation.id} />
           <input type="hidden" name="opportunity_id" value={opportunityId} />
@@ -52,12 +57,23 @@ export default function QuotationManager({ opportunityId, opportunityTitle, quot
         </form>
         <DeleteQuotationButton quotationId={quotation.id} opportunityId={opportunityId} />
         </div>
+        <form action={updateQuotationDetails} className="mt-4 grid gap-3 rounded-xl border border-zinc-800 bg-zinc-950 p-4 md:grid-cols-[220px_1fr_auto]">
+          <input type="hidden" name="quotation_id" value={quotation.id} /><input type="hidden" name="opportunity_id" value={opportunityId} />
+          <label className="text-sm font-semibold text-zinc-200">Válida hasta<input type="date" name="validity_date" defaultValue={quotation.validity_date || ""} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+          <label className="text-sm font-semibold text-zinc-200">Condiciones comerciales<input name="notes" defaultValue={quotation.notes || ""} className="mt-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3 py-2 text-white" /></label>
+          <button className="self-end rounded-xl border border-yellow-500 px-4 py-2 font-semibold text-yellow-400">Guardar encabezado</button>
+        </form>
         <div className="mt-5 overflow-x-auto rounded-xl border">
           <table className="w-full min-w-[760px] text-left text-sm">
             <thead className="bg-zinc-950/5 text-zinc-500"><tr><th className="px-4 py-3">Descripción</th><th>Unidad</th><th>Cantidad</th><th>Precio</th><th>Desc.</th><th>IVA</th><th /></tr></thead>
             <tbody className="divide-y">{quotation.quotation_items.map((item) => <tr key={item.id}>
-              <td className="px-4 py-3 font-medium">{item.description}</td><td>{item.unit}</td><td>{Number(item.quantity)}</td><td>{money.format(Number(item.unit_price))}</td><td>{Number(item.discount_percent)}%</td><td>{Number(item.tax_percent)}%</td>
-              <td className="px-4 text-right"><form action={deleteQuotationItem}><input type="hidden" name="item_id" value={item.id} /><input type="hidden" name="quotation_id" value={quotation.id} /><input type="hidden" name="opportunity_id" value={opportunityId} /><button className="font-semibold text-red-500">Eliminar</button></form></td>
+              <td colSpan={7} className="p-3"><form action={updateQuotationItem} className="grid min-w-[900px] grid-cols-[2.5fr_70px_90px_130px_80px_80px_auto] gap-2">
+                <input type="hidden" name="item_id" value={item.id} /><input type="hidden" name="quotation_id" value={quotation.id} /><input type="hidden" name="opportunity_id" value={opportunityId} />
+                <input name="description" defaultValue={item.description} className={input} /><input name="unit" defaultValue={item.unit} className={input} />
+                <input name="quantity" type="number" step="0.0001" defaultValue={item.quantity} className={input} /><input name="unit_price" type="number" step="0.01" defaultValue={item.unit_price} className={input} />
+                <input name="discount_percent" type="number" step="0.01" defaultValue={item.discount_percent} className={input} /><input name="tax_percent" type="number" step="0.01" defaultValue={item.tax_percent} className={input} />
+                <button className="rounded-xl border border-yellow-500 px-3 font-semibold text-yellow-500">Guardar</button>
+              </form><form action={deleteQuotationItem} className="mt-2 text-right"><input type="hidden" name="item_id" value={item.id} /><input type="hidden" name="quotation_id" value={quotation.id} /><input type="hidden" name="opportunity_id" value={opportunityId} /><button className="font-semibold text-red-500">Eliminar partida</button></form></td>
             </tr>)}</tbody>
           </table>
           {!quotation.quotation_items.length && <p className="p-4 text-sm text-zinc-500">Agrega la primera partida.</p>}

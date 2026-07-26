@@ -16,7 +16,7 @@ export default async function OpportunityDetailPage({ params }: { params: Promis
   const [opportunity] = await dbSelect<Opportunity>("opportunities", { select: "id,title,stage,estimated_value,probability,expected_close_date,client_id,clients(name)", id: `eq.${id}` });
   if (!opportunity) notFound();
   const [quotations, companies, branches, nextQuotationNumber, products] = await Promise.all([
-    dbSelect<Quotation>("quotations", { select: "id,quotation_number,status,subtotal,discount_total,tax_total,total,validity_date,quotation_items(id,description,unit,quantity,unit_price,discount_percent,tax_percent)", opportunity_id: `eq.${id}`, order: "created_at.desc" }),
+    dbSelect<Quotation>("quotations", { select: "id,quotation_number,status,subtotal,discount_total,tax_total,total,validity_date,notes,quotation_items(id,description,unit,quantity,unit_price,discount_percent,tax_percent)", opportunity_id: `eq.${id}`, order: "created_at.desc" }),
     dbSelect<Company>("companies", { select: "id,name", order: "name.asc" }),
     dbSelect<Branch>("branches", { select: "id,company_id,name", order: "name.asc" }),
     getNextQuotationNumberPreview(),

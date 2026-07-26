@@ -267,6 +267,34 @@ export async function deleteQuotationItem(formData: FormData) {
   revalidatePath(`/commercial/opportunities/${opportunityId}`);
 }
 
+export async function updateQuotationItem(formData: FormData) {
+  const itemId = required(formData, "item_id", "El ítem");
+  const quotationId = required(formData, "quotation_id", "La cotización");
+  const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  await dbUpdate("quotation_items", { id: `eq.${itemId}`, quotation_id: `eq.${quotationId}` }, {
+    description: required(formData, "description", "La descripción"),
+    unit: text(formData, "unit") || "UND",
+    quantity: amount(required(formData, "quantity", "La cantidad")),
+    unit_price: amount(required(formData, "unit_price", "El precio unitario")),
+    discount_percent: amount(text(formData, "discount_percent")),
+    tax_percent: amount(text(formData, "tax_percent")),
+  });
+  await recalculateQuotation(quotationId);
+  revalidatePath("/commercial/quotations");
+  revalidatePath(`/commercial/opportunities/${opportunityId}`);
+}
+
+export async function updateQuotationDetails(formData: FormData) {
+  const quotationId = required(formData, "quotation_id", "La cotización");
+  const opportunityId = required(formData, "opportunity_id", "La oportunidad");
+  await dbUpdate("quotations", { id: `eq.${quotationId}`, opportunity_id: `eq.${opportunityId}` }, {
+    validity_date: nullable(text(formData, "validity_date")),
+    notes: nullable(text(formData, "notes")),
+  });
+  revalidatePath("/commercial/quotations");
+  revalidatePath(`/commercial/opportunities/${opportunityId}`);
+}
+
 export async function updateQuotationStatus(formData: FormData) {
   const quotationId = required(formData, "quotation_id", "La cotización");
   const opportunityId = required(formData, "opportunity_id", "La oportunidad");
