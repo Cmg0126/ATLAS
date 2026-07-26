@@ -10,6 +10,8 @@ const numeric = (data: FormData, key: string, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 const allowedItemTypes = new Set(["EQUIPMENT", "MATERIAL", "LABOR"]);
+const savedRedirect = (apuId: string, message: string) =>
+  redirect(`/apu/${apuId}?saved=${encodeURIComponent(message)}`);
 
 async function recalculate(apuId: string, companyId: string) {
   const [apu] = await dbSelect<{ administration_percent: number; contingency_percent: number; profit_percent: number; tax_on_profit_percent: number }>("apu_templates", {
@@ -60,6 +62,7 @@ export async function updateApu(data: FormData) {
   await recalculate(apuId, companyId);
   revalidatePath("/apu");
   revalidatePath(`/apu/${apuId}`);
+  savedRedirect(apuId, "Datos del APU guardados y totales recalculados.");
 }
 
 export async function addApuItem(data: FormData) {
@@ -97,6 +100,7 @@ export async function addApuItem(data: FormData) {
   });
   await recalculate(apuId, companyId);
   revalidatePath(`/apu/${apuId}`);
+  savedRedirect(apuId, "Recurso agregado y APU recalculado.");
 }
 
 export async function updateApuItem(data: FormData) {
@@ -125,6 +129,7 @@ export async function updateApuItem(data: FormData) {
   });
   await recalculate(apuId, companyId);
   revalidatePath(`/apu/${apuId}`);
+  savedRedirect(apuId, "Recurso actualizado y APU recalculado.");
 }
 
 export async function deleteApuItem(data: FormData) {
@@ -133,6 +138,7 @@ export async function deleteApuItem(data: FormData) {
   await dbDelete("apu_items", { id: `eq.${value(data, "item_id")}`, apu_id: `eq.${apuId}`, company_id: `eq.${companyId}` });
   await recalculate(apuId, companyId);
   revalidatePath(`/apu/${apuId}`);
+  savedRedirect(apuId, "Recurso eliminado y APU recalculado.");
 }
 
 export async function duplicateApu(data: FormData) {

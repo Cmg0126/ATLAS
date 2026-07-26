@@ -67,10 +67,13 @@ const compactInput =
 
 export default async function ApuDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ saved?: string }>;
 }) {
   const { id } = await params;
+  const { saved } = await searchParams;
   const [apu] = await dbSelect<Apu>("apu_templates", {
     select: "*",
     id: `eq.${id}`,
@@ -122,6 +125,14 @@ export default async function ApuDetailPage({
           </form>
         </div>
       </div>
+      {saved && (
+        <div
+          role="status"
+          className="mt-5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 font-semibold text-emerald-300"
+        >
+          ✓ {saved}
+        </div>
+      )}
 
       <div className="mt-7 grid gap-4 md:grid-cols-3">
         <Metric label="Costo directo" value={money.format(Number(apu.direct_cost))} />
@@ -256,7 +267,10 @@ export default async function ApuDetailPage({
               <input type="hidden" name="apu_id" value={apu.id} />
               <input type="hidden" name="company_id" value={apu.company_id} />
               <Field label="Grupo">
-                <select name="item_type" className={input}>
+                <select name="item_type" required defaultValue="" className={input}>
+                  <option value="" disabled>
+                    Seleccionar grupo
+                  </option>
                   {Object.entries(typeNames).map(([key, label]) => (
                     <option key={key} value={key}>
                       {label.replace(/^[IVX]+\.\s*/, "")}
